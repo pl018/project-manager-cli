@@ -1,0 +1,29 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Project Manager CLI Overview
+
+The Project Manager CLI is a utility for automatically adding directories to Cursor Project Manager. The main script is [pyproject.py](mdc:pyproject.py), which registers the current working directory with Cursor's Project Manager.
+
+## Core Components
+
+- **Project Information Module**: Collects working directory information
+- **File Analysis Module**: Analyzes repository files for AI tag generation
+- **AI Integration Module**: Uses OpenAI to generate relevant project tags
+- **Project Manager Integration**: Updates Cursor's project configuration
+- **Logging Module**: Creates detailed logs of operations
+
+## Key Files
+
+- [pyproject.py](mdc:pyproject.py) - Main script with all functionality
+- [README.md](mdc:README.md) - Documentation and usage instructions
+- [requirements.txt](mdc:requirements.txt) - Python dependencies
+
+## Command-Line Options
+
+The script accepts several command-line arguments:
+- `--folder` - Add "folder" suffix to project name
+- `--tag` - Add a custom tag to the project
+- `--skip-ai-tags` - Disable the default AI tag generation

@@ -1,0 +1,7 @@
+# Core dependencies
+termcolor
+python-dotenv
+
+# For AI tagging feature
+requests
+openai

@@ -1,0 +1,58 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# PowerShell Integration Guide
+
+This project can be integrated with PowerShell to provide a global `pyproject` command.
+
+## Two Integration Options
+
+### Option 1: Use Virtual Environment
+
+Add this function to your PowerShell profile to use the script with its virtual environment:
+
+```powershell
+function pyproject {
+    param([Parameter(ValueFromRemainingArguments=$true)]$params)
+    
+    # Get the full path to the script directory and script
+    $scriptDir = "C:\Users\chris\.myAiBS\system-tools\project-manager-cli"
+    $scriptPath = Join-Path $scriptDir "pyproject.py"
+    
+    # Path to Python in the virtual environment
+    $venvPython = Join-Path $scriptDir ".venv\Scripts\python.exe"
+    
+    # Call the Python script with the venv Python
+    if ($params) {
+        & $venvPython $scriptPath $params
+    } else {
+        & $venvPython $scriptPath
+    }
+}
+```
+
+### Option 2: Use PyInstaller Executable
+
+For a standalone executable without dependency issues:
+
+1. The project can be compiled to an executable with [pyproject.spec](mdc:pyproject.spec)
+2. The executable is located in the [dist](mdc:dist) directory
+3. PowerShell integration then uses the executable directly
+
+```powershell
+function pyproject {
+    param([Parameter(ValueFromRemainingArguments=$true)]$params)
+    
+    # Path to the executable
+    $exePath = "C:\Users\chris\.myAiBS\system-tools\project-manager-cli\dist\pyproject.exe"
+    
+    # Call the executable
+    if ($params) {
+        & $exePath $params
+    } else {
+        & $exePath
+    }
+}
+```
