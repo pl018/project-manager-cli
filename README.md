@@ -26,13 +26,26 @@ Cursor Project Manager.
 
 1. Clone or download this repository
 2. Install dependencies:
-   ```
+
+   ```powershell
    pip install termcolor requests python-dotenv
    ```
-3. For AI tagging feature, set your OpenAI API key:
+
+3. Compile the Code into a .exe file:
+
+   ```powershell
+   pyinstaller --onefile pyproject.py
+   ```
+
+4. For AI tagging feature, set your OpenAI API key:
    - Create a `.env` file in the same directory as the script
    - Add `OPENAI_API_KEY=your_api_key_here` to the file
    - Or set it as an environment variable
+5. Install the script as a global command:
+
+   ```powershell
+   python -m pip install --upgrade pyproject.py
+   ```
 
 ### PowerShell Integration
 
@@ -40,22 +53,26 @@ To make the script globally available in PowerShell, add the following to your
 PowerShell profile:
 
 1. Open PowerShell and check if a profile exists:
+
    ```powershell
    Test-Path $PROFILE
    ```
 
 2. If it returns False, create a new profile:
+
    ```powershell
    New-Item -Path $PROFILE -Type File -Force
    ```
 
 3. Open the profile in a text editor:
+
    ```powershell
    notepad $PROFILE
    ```
 
 4. Add the following function (update the script path to match your
    installation):
+
    ```powershell
    function pyproject {
        param([Parameter(ValueFromRemainingArguments=$true)]$params)
@@ -75,6 +92,7 @@ PowerShell profile:
 5. Save and close the file
 
 6. Reload your profile:
+
    ```powershell
    . $PROFILE
    ```
@@ -168,3 +186,16 @@ for:
 - Permission issues
 - API connection errors
 - General exceptions
+
+```plaintext
+project-manager-cli
+├─ .cursor
+│  └─ rules
+│     ├─ code-structure.mdc
+│     ├─ powershell-integration.mdc
+│     └─ project-overview.mdc
+├─ pyproject.py
+├─ README.md
+└─ requirements.txt
+
+```

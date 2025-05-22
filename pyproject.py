@@ -34,8 +34,8 @@ class Config:
     # API Configuration
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-    OPENAI_MODEL = "gpt-4o-mini"
-    OPENAI_MODEL_TEMPERATURE = 0.5
+    OPENAI_MODEL = "o4-mini"
+    OPENAI_MODEL_TEMPERATURE = 1
     
     @classmethod
     def validate(cls) -> bool:
@@ -82,6 +82,7 @@ class AITaggingError(Exception):
     pass
 
 # -------------------- Logging Module --------------------
+# TODO: Find out were the UTF char is coming from
 
 class LoggingManager:
     """Manages application logging."""
@@ -129,43 +130,56 @@ class LoggingManager:
         """Write a detailed receipt to the log file."""
         if not self.logger:
             return
-            
-        self.logger.info("\n" + "="*50)
-        self.logger.info("PROJECT MANAGER RECEIPT")
-        self.logger.info("="*50)
+
+        # Use a consistent border style
+        border = "=" * 60
+        section_break = "-" * 60
+
+        self.logger.info(f"\\n{border}")
+        self.logger.info(f"{'PROJECT MANAGER RECEIPT':^60}")
+        self.logger.info(f"{border}\\n")
         
         # Project information
-        self.logger.info(f"Project Name: {project_entry.name}")
-        self.logger.info(f"Project Path: {project_entry.rootPath}")
-        self.logger.info(f"Tags: {', '.join(project_entry.tags)}")
-        self.logger.info(f"Added to Project Manager: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self.logger.info(f"  {'Project Name:':<25} {project_entry.name}")
+        self.logger.info(f"  {'Project Path:':<25} {project_entry.rootPath}")
+        self.logger.info(f"  {'Tags:':<25} {', '.join(project_entry.tags)}")
+        self.logger.info(f"  {'Added to Project Manager:':<25} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # AI-generated information if available
         if ai_info:
-            self.logger.info("\nAI GENERATED INFORMATION")
-            self.logger.info("-"*50)
-            self.logger.info(f"Tags: {', '.join(ai_info.tags) if ai_info.tags else 'None'}")
+            self.logger.info(f"\\n{section_break}")
+            self.logger.info(f"{'AI GENERATED INFORMATION':^60}")
+            self.logger.info(f"{section_break}\\n")
+            self.logger.info(f"  {'AI Tags:':<25} {', '.join(ai_info.tags) if ai_info.tags else 'None'}")
             if ai_info.app_name:
                 # Indicate if the AI-generated name was used
                 name_status = "(Used as project name)" if project_entry.name == ai_info.app_name else ""
-                self.logger.info(f"App Name: {ai_info.app_name} {name_status}")
+                self.logger.info(f"  {'AI App Name:':<25} {ai_info.app_name} {name_status}")
             if ai_info.app_description:
-                self.logger.info(f"App Description: {ai_info.app_description}")
+                self.logger.info(f"  {'AI App Description:':<25} {ai_info.app_description}")
         
         # API response information if available
         if api_response:
-            self.logger.info("\nAI TAG GENERATION DETAILS")
-            self.logger.info("-"*50)
-            self.logger.info(f"Model: {api_response.get('model', 'N/A')}")
+            self.logger.info(f"\\n{section_break}")
+            self.logger.info(f"{'AI TAG GENERATION DETAILS':^60}")
+            self.logger.info(f"{section_break}\\n")
+            self.logger.info(f"  {'Model:':<25} {api_response.get('model', 'N/A')}")
             
             # Format the raw response nicely
-            raw_content = api_response['choices'][0]['message']['content']
-            self.logger.info(f"Raw Response: {raw_content}")
+            raw_content_str = api_response['choices'][0]['message']['content']
+            try:
+                # Attempt to parse and pretty-print if it's JSON
+                raw_content_json = json.loads(raw_content_str)
+                pretty_raw_content = json.dumps(raw_content_json, indent=2)
+                self.logger.info(f"  {'Raw Response:':<25}\\n{pretty_raw_content}")
+            except json.JSONDecodeError:
+                # If not JSON, print as is
+                self.logger.info(f"  {'Raw Response:':<25} {raw_content_str}")
             
-            self.logger.info(f"Token Usage: {api_response.get('usage', {}).get('total_tokens', 'N/A')} total tokens")
+            self.logger.info(f"  {'Token Usage:':<25} {api_response.get('usage', {}).get('total_tokens', 'N/A')} total tokens")
         
-        self.logger.info("\nLog file location: " + os.path.abspath(self.log_file_path))
-        self.logger.info("="*50)
+        self.logger.info(f"\\n  {'Log file location:':<25} {os.path.abspath(self.log_file_path)}")
+        self.logger.info(f"{border}\\n")
 
 # -------------------- Project Context Module --------------------
 
