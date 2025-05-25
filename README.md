@@ -1,25 +1,30 @@
 # Cursor Project Updater
 
 A utility script that automatically adds your current working directory to
-Cursor Project Manager.
+Cursor Project Manager, now with enhanced data management using UUIDs and an SQLite database.
 
 ## Features
 
 - Automatically registers current directory with Cursor Project Manager
+- **UUID-based Project Identification**: Each project is assigned a unique UUID, stored in a `.pyprojectid` file at the project root, ensuring persistent identity.
+- **SQLite Database Backend**: Project metadata is stored in a robust SQLite database (`project_manager_data.db` located in user's app data directory), preventing duplicates and enabling efficient data management.
+- **Automated `projects.json` Generation**: The `projects.json` file for Cursor Project Manager is automatically generated from the SQLite database.
 - Adds intelligent default tags (parent folder name)
 - Supports custom tags via command-line arguments
 - Option to add "folder" suffix to project names
 - Colored terminal output for better readability
 - **AI Tagging**: Analyzes your repository files to automatically generate
-  relevant project tags (enabled by default)
-- Detailed logging with receipt of changes
+  relevant project tags, app name, and description (enabled by default).
+- **Per-Project Logging**: Detailed logging receipts are stored in UUID-named files (e.g., `<uuid>.log`) in the user's app data directory, providing a history of operations for each project.
+- **Test Mode**: `--test` flag allows running the script without making changes to the database, `.pyprojectid`, or `projects.json`, with logs directed to the console.
 
 ## Requirements
 
-- Python 3.6+
-- termcolor package
-- requests package (for AI tagging)
-- python-dotenv package (for environment variable management)
+- Python 3.7+ (due to `pathlib` usage and f-strings)
+- `pydantic` (for data validation)
+- `termcolor` package
+- `requests` package (for AI tagging)
+- `python-dotenv` package (for environment variable management)
 - OpenAI API key (for AI tagging feature)
 
 ## Installation
@@ -28,7 +33,7 @@ Cursor Project Manager.
 2. Install dependencies:
 
    ```powershell
-   pip install termcolor requests python-dotenv
+   pip install pydantic termcolor requests python-dotenv
    ```
 
 3. Compile the Code into a .exe file:
@@ -118,6 +123,7 @@ pyproject [options]
 - `--folder`: Add "folder" suffix to the root folder name
 - `--tag TAG`: Add a custom tag to the project
 - `--skip-ai-tags`: Disable AI tag generation (AI tagging is enabled by default)
+- `--test`: Run in test mode. No changes are made to the database, `.pyprojectid` file, or `projects.json`. Logging is directed to the console.
 
 ## Examples
 
@@ -125,6 +131,12 @@ Add current directory as a project (includes AI tagging by default):
 
 ```bash
 python pyproject.py
+```
+
+Run in test mode:
+
+```bash
+python pyproject.py --test
 ```
 
 Add current directory with "folder" suffix:
@@ -155,15 +167,22 @@ python pyproject.py --folder --tag frontend
 
 The script:
 
-1. Collects information about the current working directory
-2. Creates a project entry with appropriate tags
-3. By default, performs AI tagging:
-   - Analyzes up to 10 files from your repository
-   - Uses OpenAI to determine project purpose
-   - Generates 2-3 descriptive tags automatically
-4. Updates the Cursor Project Manager's configuration file
-5. Validates the updated configuration
-6. Creates a detailed log file as a receipt of the operation
+1. **Identifies Project**: Checks for a `.pyprojectid` file in the current directory. If not found (and not in test mode), generates a new UUID and saves it to `.pyprojectid`.
+2. **Initializes Database**: Connects to an SQLite database (`project_manager_data.db` in user's app data). Creates tables if they don't exist.
+3. **Collects Information**: Gathers details about the current working directory.
+4. **AI Analysis (Optional)**: By default, performs AI tagging:
+   - Analyzes repository files.
+   - Uses OpenAI to determine project purpose, suggest a name, description, and descriptive tags.
+5. **Updates Database**: Adds or updates the project's metadata in the SQLite database using the project's UUID as the key.
+6. **Generates Cursor PM File**: Regenerates the `projects.json` file from the data in the SQLite database, ensuring Cursor Project Manager has the latest information.
+7. **Logs Operation**: Writes a detailed receipt to a UUID-named log file in the user's app data directory (e.g., `logs/<uuid>.log`). In test mode, logs to console.
+
+## Data Management
+
+- **`.pyprojectid`**: A file created at the root of your project containing a unique UUID. This file should ideally be committed to your project's version control to maintain a consistent identity across different environments.
+- **`project_manager_data.db`**: An SQLite database stored in `%APPDATA%\pyproject-cli` (Windows) or `~/.config/pyproject-cli` (Linux/macOS). This is the central source of truth for all projects managed by this script.
+- **Log Files**: Individual log files, named by project UUID (e.g., `uuid.log`), are stored in a `logs` subdirectory within the same application data directory as the database. These provide a history of processing for each project.
+- **`projects.json`**: The file used by the Cursor Project Manager extension. This script now generates this file based on the contents of the SQLite database.
 
 ## File Structure
 

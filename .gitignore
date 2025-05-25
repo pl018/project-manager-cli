@@ -33,7 +33,7 @@ ENV/
 # Logs
 *.log
 *.log.*
-
+.docs/
 # IDE files
 .idea/
 .vscode/
@@ -42,4 +42,9 @@ ENV/
 .DS_Store
 
 # Project specific
-pyproject_log_* 
+pyproject_log_*
+mcp.json
+rules/
+.cursor/
+.cursor/mcp.json
+.pyprojectid
