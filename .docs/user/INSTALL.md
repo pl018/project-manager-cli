@@ -157,4 +157,4 @@ If you encounter configuration issues:
 - **Cursor projects.json not found**: Verify the Cursor installation and projects file path
 - **OpenAI API errors**: Check your API key is valid and has sufficient credits
 
-For more help, see the [README.md](README.md) or open an issue on GitHub. 
+For more help, see the [README.md](../../README.md) or open an issue on GitHub. 

@@ -33,7 +33,7 @@ ENV/
 # Logs
 *.log
 *.log.*
-.docs/
+.docs/dev-docs/
 # IDE files
 .idea/
 .vscode/

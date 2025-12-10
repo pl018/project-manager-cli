@@ -179,10 +179,10 @@ Enhanced SQLite with:
 
 I've created comprehensive documentation:
 
-1. **README-TUI.md** - Full feature documentation
-2. **QUICKSTART.md** - 5-minute setup guide
-3. **MIGRATION.md** - Upgrade guide from v1.x
-4. **ARCHITECTURE.md** - Technical design docs
+1. **[README-TUI.md](../user/README-TUI.md)** - Full feature documentation
+2. **[QUICKSTART.md](../user/QUICKSTART.md)** - 5-minute setup guide
+3. **[MIGRATION.md](MIGRATION.md)** - Upgrade guide from v1.x
+4. **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical design docs
 
 ## Backward Compatibility
 
@@ -248,9 +248,9 @@ Easy to extend:
 
 All documentation is included:
 - Press `?` in the TUI for keyboard shortcuts
-- Check `README-TUI.md` for full docs
-- See `QUICKSTART.md` to get started
-- Read `MIGRATION.md` for upgrading
+- Check [README-TUI.md](../user/README-TUI.md) for full docs
+- See [QUICKSTART.md](../user/QUICKSTART.md) to get started
+- Read [MIGRATION.md](MIGRATION.md) for upgrading
 
 ## Summary
 

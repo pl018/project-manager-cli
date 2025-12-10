@@ -36,7 +36,7 @@ project-manager-cli = "project_manager_cli.cli:main"
 pm-cli = "project_manager_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/project_manager_cli"]
+packages = ["src/project_manager_cli", "src/core", "src/ui", "src/integrations"]
 
 [tool.hatch.build.targets.sdist]
 include = [

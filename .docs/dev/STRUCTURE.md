@@ -30,9 +30,10 @@ project-manager-cli/
 ├── main.py                      # Back-compat entrypoint
 ├── pyproject.toml               # Packaging config
 ├── requirements.txt
-├── README.md
-├── INSTALL.md
-└── STRUCTURE.md
+├── README.md                     # Main documentation
+└── .docs/                        # Documentation directory
+    ├── user/                     # User documentation
+    └── dev/                      # Developer documentation
 ```
 
 ## Module Descriptions

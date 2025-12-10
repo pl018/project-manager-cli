@@ -208,7 +208,7 @@ The database schema is backward compatible, so v1.x will work (just won't show n
 
 ## Getting Help
 
-- Check `README-TUI.md` for full documentation
+- Check [README-TUI.md](../user/README-TUI.md) for full documentation
 - Run `python main.py` and press `?` for help
 - Open an issue on GitHub
 

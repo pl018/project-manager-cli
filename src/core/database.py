@@ -238,12 +238,39 @@ class DatabaseManager:
         params = []
 
         if query:
-            conditions.append("(name LIKE ? OR root_path LIKE ? OR notes LIKE ?)")
-            search_term = f"%{query}%"
-            params.extend([search_term, search_term, search_term])
+            # Check if notes column exists to build appropriate query
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute("PRAGMA table_info(projects)")
+                columns = [row[1] for row in cursor.fetchall()]
+                has_notes = 'notes' in columns
+            except:
+                has_notes = False
+            
+            if has_notes:
+                conditions.append("(name LIKE ? OR root_path LIKE ? OR notes LIKE ?)")
+                search_term = f"%{query}%"
+                params.extend([search_term, search_term, search_term])
+            else:
+                conditions.append("(name LIKE ? OR root_path LIKE ?)")
+                search_term = f"%{query}%"
+                params.extend([search_term, search_term])
 
         if favorites_only:
-            conditions.append("favorite = 1")
+            # Check if favorite column exists
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute("PRAGMA table_info(projects)")
+                columns = [row[1] for row in cursor.fetchall()]
+                has_favorite = 'favorite' in columns
+            except:
+                has_favorite = False
+            
+            if has_favorite:
+                conditions.append("favorite = 1")
+            else:
+                # No favorites column - return empty results for favorites filter
+                return []
 
         sql = f"SELECT * FROM projects WHERE {' AND '.join(conditions)} ORDER BY name COLLATE NOCASE;"
         rows = self._execute_query(sql, tuple(params), fetch_all=True)

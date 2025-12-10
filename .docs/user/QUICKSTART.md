@@ -101,7 +101,7 @@ python pyproject.py --tag frontend --tag react
 ## Need Help?
 
 - Press `?` in the TUI for keyboard shortcuts
-- Check `README-TUI.md` for full documentation
+- Check [README-TUI.md](README-TUI.md) for full documentation
 - Open an issue on GitHub
 
 **Happy coding! 🎉**
