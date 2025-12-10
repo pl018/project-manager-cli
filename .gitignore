@@ -48,17 +48,3 @@ rules/
 .cursor/
 .cursor/mcp.json
 .pyprojectid
-
-# Database files (user data)
-*.db
-*.db-journal
-project_manager_data.db
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# Build artifacts
-*.exe
