@@ -154,6 +154,13 @@ class ProjectManagerApp(App):
         text-style: italic;
     }
 
+    .project-notes-preview {
+        color: $text-muted;
+        margin-bottom: 1;
+        background: $surface;
+        padding: 0 1;
+    }
+
     .project-stats {
         color: $text-muted;
     }
