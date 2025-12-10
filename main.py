@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backward compatibility entry point for the project manager CLI.
-This file maintains the original entry point but uses the refactored modules.
+Main entry point for the project manager CLI using the refactored structure.
+This provides the command line interface for the application.
 """
 
 # Import the main function from the new package structure
