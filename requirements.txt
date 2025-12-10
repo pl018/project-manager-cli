@@ -5,5 +5,3 @@ python-dotenv
 # For AI tagging feature
 requests
 openai
-uuid
-pysqlite3
