@@ -39,12 +39,20 @@ class ProjectCard(Static, can_focus=True):
                 tag_text = " ".join([f"[{tag}]" for tag in tags[:5]])
                 yield Label(f"🏷️  {tag_text}", classes="project-tags")
 
-            # Description (AI generated or notes preview)
-            description = self.project.get('ai_app_description') or self.project.get('notes', '')
-            if description:
+            # AI Description
+            ai_description = self.project.get('ai_app_description', '')
+            if ai_description:
                 # Truncate if too long
-                desc_preview = description[:80] + "..." if len(description) > 80 else description
+                desc_preview = ai_description[:100] + "..." if len(ai_description) > 100 else ai_description
                 yield Label(desc_preview, classes="project-description")
+
+            # Notes preview (if available)
+            notes = self.project.get('notes', '')
+            if notes:
+                # Show first line or first 80 chars of notes
+                first_line = notes.split('\n')[0]
+                notes_preview = first_line[:80] + "..." if len(first_line) > 80 else first_line
+                yield Label(f"📝 {notes_preview}", classes="project-notes-preview")
 
             # Stats footer
             open_count = self.project.get('open_count', 0)

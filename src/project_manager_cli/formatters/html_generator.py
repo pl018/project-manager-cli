@@ -118,7 +118,7 @@ class HTMLGenerator:
         <div class="toolbar">
             <div class="search-container">
                 <span class="search-icon">&#128269;</span>
-                <input type="text" id="search-input" class="search-input" placeholder="Search projects by name, path, or description..." autocomplete="off">
+                <input type="text" id="search-input" class="search-input" placeholder="Search projects by name, path, description, notes, or tags..." autocomplete="off">
                 <button class="clear-btn" id="clear-search" title="Clear search">&#10005;</button>
             </div>
             <div class="tag-filters">
@@ -458,6 +458,38 @@ class HTMLGenerator:
             line-height: 1.5;
         }
 
+        .project-notes {
+            background: var(--bg-primary);
+            border-left: 3px solid var(--accent-primary);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .notes-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .notes-icon {
+            font-size: 1rem;
+        }
+
+        .notes-content {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         .project-path-container {
             display: flex;
             gap: 0.5rem;
@@ -751,13 +783,15 @@ class HTMLGenerator:
                 const name = (card.dataset.name || '').toLowerCase();
                 const path = (card.dataset.path || '').toLowerCase();
                 const description = (card.dataset.description || '').toLowerCase();
+                const notes = (card.dataset.notes || '').toLowerCase();
                 const tags = (card.dataset.tags || '').toLowerCase().split(',');
 
                 // Check search query
-                const matchesSearch = !searchQuery || 
-                    name.includes(searchQuery) || 
-                    path.includes(searchQuery) || 
+                const matchesSearch = !searchQuery ||
+                    name.includes(searchQuery) ||
+                    path.includes(searchQuery) ||
                     description.includes(searchQuery) ||
+                    notes.includes(searchQuery) ||
                     tags.some(t => t.includes(searchQuery));
 
                 // Check tag filter
@@ -933,17 +967,35 @@ class HTMLGenerator:
         
         favorite_badge = '<span class="favorite-badge">&#9733;</span>' if is_favorite else ''
         description_html = f'<p class="project-description">{description}</p>' if description else ''
-        
+
+        # Notes section
+        notes = project.get("notes", "")
+        notes_escaped = html.escape(notes) if notes else ""
+        notes_html = ""
+        if notes:
+            # Truncate notes for preview
+            notes_preview = notes[:150] + "..." if len(notes) > 150 else notes
+            notes_preview_escaped = html.escape(notes_preview)
+            notes_html = f'''
+                <div class="project-notes">
+                    <div class="notes-header">
+                        <span class="notes-icon">&#128221;</span>
+                        <span class="notes-label">Notes</span>
+                    </div>
+                    <div class="notes-content">{notes_preview_escaped}</div>
+                </div>'''
+
         # Escape for JavaScript
         path_js = root_path.replace("\\", "\\\\").replace("'", "\\'")
-        
+
         return f"""
-            <div class="project-card" data-name="{name}" data-path="{root_path_escaped}" data-description="{description}" data-tags="{tags_data}">
+            <div class="project-card" data-name="{name}" data-path="{root_path_escaped}" data-description="{description}" data-tags="{tags_data}" data-notes="{notes_escaped}">
                 <div class="project-header">
                     <h3 class="project-name">{name}</h3>
                     {favorite_badge}
                 </div>
                 {description_html}
+                {notes_html}
                 <div class="project-path-container">
                     <div class="project-path" onclick="copyToClipboard('{path_js}')" title="Click to copy path">
                         <span class="path-icon">&#128193;</span>
