@@ -6,9 +6,10 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import Label, Static
 from textual.reactive import reactive
+from textual.message import Message
 
 
-class ProjectCard(Static):
+class ProjectCard(Static, can_focus=True):
     """A beautiful card displaying project information."""
 
     BORDER_TITLE = "Project"
@@ -89,7 +90,7 @@ class ProjectCard(Static):
         """Handle click events."""
         self.post_message(self.Selected(self.project))
 
-    class Selected(Static.Clicked):
+    class Selected(Message):
         """Event raised when a project card is selected."""
         def __init__(self, project: dict):
             super().__init__()
