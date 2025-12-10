@@ -85,30 +85,99 @@ Both modes share the same SQLite database, so your projects are synchronized acr
 
 ### CLI Commands
 
+#### Initialize Configuration
+
 ```bash
-# Initialize configuration
+# Interactive setup (recommended for first time)
 pm-cli init
 
+# Set all options at once
+pm-cli init --db-path ~/.myaibs/projects.db \
+            --projects-file ~/AppData/Roaming/Cursor/User/globalStorage/projects.json \
+            --openai-api-key sk-...
+
+# Force reconfiguration
+pm-cli init --force
+
+# Set only database path (will prompt for others)
+pm-cli init --db-path ~/my-projects.db
+```
+
+#### Run Project Registration
+
+```bash
 # Register current directory as a project
 pm-cli run
-
-# Register with custom tag
-pm-cli run --tag frontend
 
 # Register specific directory
 pm-cli run /path/to/project
 
-# Test mode (no changes saved)
+# Test mode (analyze without saving changes)
 pm-cli run --test
 
-# Skip AI tagging
-pm-cli run --skip-ai-tags
+# Test specific project
+pm-cli run --test ~/projects/my-app
+```
 
+#### List Projects
+
+```bash
+# List all projects
+pm-cli list
+
+# List only favorite projects
+pm-cli list --favorites
+pm-cli list -f
+
+# Filter by single tag
+pm-cli list --tag python
+pm-cli list -t python
+
+# Filter by multiple tags (AND logic)
+pm-cli list --tag python --tag web
+pm-cli list -t python -t web
+
+# Search by name or path
+pm-cli list --search "my-app"
+pm-cli list -s backend
+
+# Combine filters
+pm-cli list --favorites --tag python --search "api"
+pm-cli list -f -t python -s api
+```
+
+#### Generate HTML Report
+
+```bash
+# Generate and open HTML in browser
+pm-cli html
+
+# Generate without opening browser
+pm-cli html --no-open
+
+# Save to specific location
+pm-cli html --output ~/projects.html
+pm-cli html -o ~/Desktop/my-projects.html
+
+# Generate to file without opening
+pm-cli html --output report.html --no-open
+```
+
+#### Configuration Management
+
+```bash
 # Show current configuration
 pm-cli config
 
-# Reset configuration
+# Reset configuration (will prompt for confirmation)
 pm-cli reset
+```
+
+#### Launch Interactive TUI
+
+```bash
+# Launch interactive terminal UI
+pm-cli tui
 ```
 
 ### TUI Navigation
@@ -260,12 +329,40 @@ Contributions are welcome! Please:
 
 MIT License - See LICENSE file for details
 
+## Getting Help
+
+### CLI Help
+
+```bash
+# Show main help with all commands
+pm-cli --help
+
+# Show detailed help for specific command
+pm-cli init --help
+pm-cli run --help
+pm-cli list --help
+pm-cli html --help
+pm-cli config --help
+pm-cli reset --help
+pm-cli tui --help
+```
+
+Each command includes:
+- Detailed description
+- All available options and flags
+- Real-world usage examples
+- Short and long option formats
+
+### TUI Help
+
+Press `?` in the TUI for a complete list of keyboard shortcuts and features.
+
 ## Support
 
 - **Issues**: Open an issue on GitHub
 - **Documentation**: Check `.docs/` directory
 - **TUI Help**: Press `?` in the TUI for keyboard shortcuts
-- **CLI Help**: Run `pm-cli --help`
+- **CLI Help**: Run `pm-cli --help` or `pm-cli COMMAND --help`
 
 ---
 

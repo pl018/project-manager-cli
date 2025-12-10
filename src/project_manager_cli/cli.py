@@ -7,34 +7,68 @@ from pathlib import Path
 import click
 import yaml
 from typing import Dict, Any
+from rich.console import Console
+from rich import print as rprint
 
 from .config import Config, ConfigManager
 from .app import Application
+from .rich_help import RichGroup, RichCommand
+
+# Initialize Rich console
+console = Console()
+
+# Safe emoji printing for Windows
+def safe_emoji(emoji: str, fallback: str = "") -> str:
+    """Return emoji if supported, otherwise return fallback."""
+    try:
+        # Test if emoji can be encoded
+        emoji.encode(sys.stdout.encoding or 'utf-8')
+        return emoji
+    except (UnicodeEncodeError, AttributeError):
+        return fallback
 
 
-@click.group()
+@click.group(cls=RichGroup)
 @click.version_option()
 def cli():
-    """Project Manager CLI - Manage your project metadata and Cursor integration."""
+    """Manage your project metadata and Cursor integration."""
     pass
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 @click.option('--db-path', type=click.Path(), help='Path to store the SQLite database')
 @click.option('--projects-file', type=click.Path(), help='Path to Cursor projects.json file')
 @click.option('--openai-api-key', help='OpenAI API key for AI tagging')
 @click.option('--force', is_flag=True, help='Overwrite existing configuration')
 def init(db_path, projects_file, openai_api_key, force):
-    """Initialize the project manager CLI configuration."""
-    click.echo("🚀 Initializing Project Manager CLI...")
+    """Initialize the project manager CLI configuration.
+    
+    Sets up the database path, Cursor projects file location, and optional OpenAI API key.
+    If options are not provided, you'll be prompted interactively.
+    
+    Examples:
+    
+    # Interactive setup (recommended for first time)
+    $ pm-cli init
+    
+    # Set all options at once
+    $ pm-cli init --db-path ~/.myaibs/projects.db --projects-file ~/cursor/projects.json --openai-api-key sk-...
+    
+    # Force reconfiguration
+    $ pm-cli init --force
+    
+    # Set only database path (will prompt for others)
+    $ pm-cli init --db-path ~/my-projects.db
+    """
+    console.print("[bold cyan]>>> Initializing Project Manager CLI...[/bold cyan]")
     
     config_manager = ConfigManager()
     
     # Check if config already exists
     if config_manager.config_exists() and not force:
-        click.echo("⚠️  Configuration already exists!")
+        console.print("[yellow]! Configuration already exists![/yellow]")
         if not click.confirm("Do you want to reconfigure?"):
-            click.echo("Configuration unchanged.")
+            console.print("[dim]Configuration unchanged.[/dim]")
             return
     
     # Get database path
@@ -86,30 +120,48 @@ def init(db_path, projects_file, openai_api_key, force):
     # Save configuration
     try:
         config_manager.save_config(config_data)
-        click.echo(f"✅ Configuration saved to: {config_manager.config_file}")
-        click.echo(f"📁 Database will be stored at: {config_data['db_path']}")
-        click.echo(f"📄 Projects file: {config_data['projects_file']}")
+        console.print(f"[green]√ Configuration saved to:[/green] [cyan]{config_manager.config_file}[/cyan]")
+        console.print(f"[green]  Database will be stored at:[/green] [cyan]{config_data['db_path']}[/cyan]")
+        console.print(f"[green]  Projects file:[/green] [cyan]{config_data['projects_file']}[/cyan]")
         
         # Create database directory if it doesn't exist
         Path(config_data['db_path']).parent.mkdir(parents=True, exist_ok=True)
         
-        click.echo("\n🎉 Project Manager CLI is ready to use!")
-        click.echo("Run 'project-manager-cli --help' to see available commands.")
+        console.print("\n[bold green]>>> Project Manager CLI is ready to use![/bold green]")
+        console.print("[dim]Run 'pm-cli --help' to see available commands.[/dim]")
         
     except Exception as e:
-        click.echo(f"❌ Error saving configuration: {e}", err=True)
+        console.print(f"[bold red]ERROR: Saving configuration failed:[/bold red] {e}")
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 @click.option('--test', is_flag=True, help='Run in test mode (no changes saved)')
 @click.argument('directory', type=click.Path(exists=True), default='.')
 def run(test, directory):
-    """Run the project manager on a directory."""
+    """Run the project manager on a directory.
+    
+    Analyzes the specified directory, extracts project metadata, and updates the database.
+    Uses AI tagging if OpenAI API key is configured.
+    
+    Examples:
+    
+    # Run on current directory
+    $ pm-cli run
+    
+    # Run on specific directory
+    $ pm-cli run /path/to/my-project
+    
+    # Test mode - analyze without saving changes
+    $ pm-cli run --test
+    
+    # Test specific project
+    $ pm-cli run --test ~/projects/my-app
+    """
     try:
         config_manager = ConfigManager()
         if not config_manager.config_exists():
-            click.echo("❌ Configuration not found. Run 'project-manager-cli init' first.", err=True)
+            console.print("[red]ERROR: Configuration not found.[/red] Run [cyan]'pm-cli init'[/cyan] first.")
             sys.exit(1)
         
         # Change to the target directory
@@ -123,70 +175,142 @@ def run(test, directory):
             os.chdir(original_dir)
             
     except Exception as e:
-        click.echo(f"❌ Error: {e}", err=True)
+        console.print(f"[bold red]ERROR:[/bold red] {e}")
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 def config():
-    """Show current configuration."""
+    """Show current configuration.
+    
+    Displays all configuration settings including database path, projects file,
+    and other settings. API keys are masked for security.
+    
+    Examples:
+    
+    # View current configuration
+    $ pm-cli config
+    """
     config_manager = ConfigManager()
     
     if not config_manager.config_exists():
-        click.echo("❌ Configuration not found. Run 'project-manager-cli init' first.", err=True)
+        console.print("[red]Configuration not found.[/red] Run [cyan]'pm-cli init'[/cyan] first.")
         return
     
     config_data = config_manager.load_config()
     
-    click.echo("📋 Current Configuration:")
-    click.echo("=" * 40)
+    from rich.table import Table
+    
+    console.print("\n[bold cyan]Current Configuration[/bold cyan]\n")
+    
+    table = Table(show_header=True, header_style="bold yellow", box=None)
+    table.add_column("Setting", style="cyan", width=25)
+    table.add_column("Value", style="white")
+    
     for key, value in config_data.items():
         if key == 'openai_api_key' and value:
-            value = '***hidden***'
-        click.echo(f"{key}: {value}")
+            value = '[dim]***hidden***[/dim]'
+        table.add_row(key, str(value))
+    
+    console.print(table)
+    console.print()
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 @click.confirmation_option(prompt='Are you sure you want to reset the configuration?')
 def reset():
-    """Reset configuration to defaults."""
+    """Reset configuration to defaults.
+    
+    Removes the configuration file. You'll need to run 'init' again to reconfigure.
+    This does NOT delete your project database.
+    
+    Examples:
+    
+    # Reset configuration (will prompt for confirmation)
+    $ pm-cli reset
+    """
     config_manager = ConfigManager()
     
     if config_manager.config_exists():
         config_manager.config_file.unlink()
-        click.echo("✅ Configuration reset. Run 'project-manager-cli init' to reconfigure.")
+        console.print("[green]√ Configuration reset.[/green] Run [cyan]'pm-cli init'[/cyan] to reconfigure.")
     else:
-        click.echo("ℹ️  No configuration found to reset.")
+        console.print("[dim]INFO: No configuration found to reset.[/dim]")
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 def tui():
-    """Launch the interactive TUI (Terminal User Interface)."""
+    """Launch the interactive TUI (Terminal User Interface).
+    
+    Opens a full-screen interactive interface for browsing and managing projects.
+    Navigate with arrow keys, search with '/', and press '?' for help.
+    
+    Examples:
+    
+    # Launch interactive UI
+    $ pm-cli tui
+    
+    Navigation:
+    - Arrow keys: Navigate through projects
+    - Enter: View project details
+    - /: Search projects
+    - f: Toggle favorites filter
+    - q: Quit
+    """
     try:
         # Import here to avoid loading TUI dependencies for other commands
         from ui.app import run_tui
         
-        click.echo("🚀 Launching Project Manager TUI...")
+        console.print("[bold cyan]>>> Launching Project Manager TUI...[/bold cyan]")
         run_tui()
         
     except ImportError as e:
-        click.echo(f"❌ Failed to import TUI module: {e}", err=True)
-        click.echo("Make sure textual is installed: pip install textual", err=True)
+        console.print(f"[red]ERROR: Failed to import TUI module:[/red] {e}")
+        console.print("[yellow]Make sure textual is installed:[/yellow] [cyan]pip install textual[/cyan]")
         sys.exit(1)
     except KeyboardInterrupt:
-        click.echo("\n\n👋 Goodbye!")
+        console.print("\n\n[bold]Goodbye![/bold]")
         sys.exit(0)
     except Exception as e:
-        click.echo(f"❌ Error launching TUI: {e}", err=True)
+        console.print(f"[bold red]ERROR: Launching TUI failed:[/bold red] {e}")
         sys.exit(1)
 
 
-@cli.command(name='list')
+@cli.command(name='list', cls=RichCommand)
 @click.option('--favorites', '-f', is_flag=True, help='Show only favorite projects')
 @click.option('--tag', '-t', multiple=True, help='Filter by tag (can be used multiple times)')
 @click.option('--search', '-s', help='Search projects by name or path')
 def list_projects(favorites, tag, search):
-    """List all projects in a formatted table."""
+    """List all projects in a formatted table.
+    
+    Displays projects with their names, paths, tags, and other metadata.
+    Supports filtering by favorites, tags, and search terms.
+    
+    Examples:
+    
+    # List all projects
+    $ pm-cli list
+    
+    # List only favorite projects
+    $ pm-cli list --favorites
+    $ pm-cli list -f
+    
+    # Filter by single tag
+    $ pm-cli list --tag python
+    $ pm-cli list -t python
+    
+    # Filter by multiple tags (AND logic)
+    $ pm-cli list --tag python --tag web
+    $ pm-cli list -t python -t web
+    
+    # Search by name or path
+    $ pm-cli list --search "my-app"
+    $ pm-cli list -s backend
+    
+    # Combine filters
+    $ pm-cli list --favorites --tag python --search "api"
+    $ pm-cli list -f -t python -s api
+    """
     try:
         from core.database import DatabaseManager
         from .formatters import ProjectTableFormatter
@@ -194,14 +318,14 @@ def list_projects(favorites, tag, search):
         # Get database path from config
         config_manager = ConfigManager()
         if not config_manager.config_exists():
-            click.echo("❌ Configuration not found. Run 'pm-cli init' first.", err=True)
+            console.print("[red]ERROR: Configuration not found.[/red] Run [cyan]'pm-cli init'[/cyan] first.")
             sys.exit(1)
         
         config_data = config_manager.load_config()
         db_path = config_data.get('db_path')
         
         if not db_path:
-            click.echo("❌ Database path not configured.", err=True)
+            console.print("[red]ERROR: Database path not configured.[/red]")
             sys.exit(1)
         
         # Connect to database and fetch projects
@@ -227,18 +351,38 @@ def list_projects(favorites, tag, search):
             db.close()
             
     except ImportError as e:
-        click.echo(f"❌ Failed to import required modules: {e}", err=True)
+        console.print(f"[red]ERROR: Failed to import required modules:[/red] {e}")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"❌ Error listing projects: {e}", err=True)
+        console.print(f"[bold red]ERROR: Listing projects failed:[/bold red] {e}")
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(cls=RichCommand)
 @click.option('--no-open', is_flag=True, help='Generate HTML but do not open in browser')
 @click.option('--output', '-o', type=click.Path(), help='Output file path (defaults to temp directory)')
 def html(no_open, output):
-    """Generate and open an HTML page with project list."""
+    """Generate and open an HTML page with project list.
+    
+    Creates a beautiful, interactive HTML page with all your projects.
+    Includes search, filtering, and sorting capabilities. By default,
+    opens in your web browser automatically.
+    
+    Examples:
+    
+    # Generate and open HTML in browser
+    $ pm-cli html
+    
+    # Generate without opening browser
+    $ pm-cli html --no-open
+    
+    # Save to specific location
+    $ pm-cli html --output ~/projects.html
+    $ pm-cli html -o ~/Desktop/my-projects.html
+    
+    # Generate to file without opening
+    $ pm-cli html --output report.html --no-open
+    """
     try:
         from core.database import DatabaseManager
         from .formatters import HTMLGenerator
@@ -246,14 +390,14 @@ def html(no_open, output):
         # Get database path from config
         config_manager = ConfigManager()
         if not config_manager.config_exists():
-            click.echo("❌ Configuration not found. Run 'pm-cli init' first.", err=True)
+            console.print("[red]ERROR: Configuration not found.[/red] Run [cyan]'pm-cli init'[/cyan] first.")
             sys.exit(1)
         
         config_data = config_manager.load_config()
         db_path = config_data.get('db_path')
         
         if not db_path:
-            click.echo("❌ Database path not configured.", err=True)
+            console.print("[red]ERROR: Database path not configured.[/red]")
             sys.exit(1)
         
         # Connect to database and fetch projects
@@ -283,19 +427,19 @@ def html(no_open, output):
             else:
                 output_path = generator.generate(projects, open_browser=not no_open)
             
-            click.echo(f"HTML page generated: {output_path}")
+            console.print(f"[green]HTML page generated:[/green] [cyan]{output_path}[/cyan]")
             
             if not no_open:
-                click.echo("Opening in default browser...")
+                console.print("[dim]Opening in default browser...[/dim]")
             
         finally:
             db.close()
             
     except ImportError as e:
-        click.echo(f"❌ Failed to import required modules: {e}", err=True)
+        console.print(f"[red]ERROR: Failed to import required modules:[/red] {e}")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"❌ Error generating HTML: {e}", err=True)
+        console.print(f"[bold red]ERROR: Generating HTML failed:[/bold red] {e}")
         sys.exit(1)
 
 
