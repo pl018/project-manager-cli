@@ -17,6 +17,7 @@ class Dashboard(Screen):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("slash", "focus_search", "Search", key_display="/"),
+        Binding("escape", "clear_filters", "Clear Filters", show=False),
         Binding("n", "new_project", "New Project"),
         Binding("r", "refresh", "Refresh"),
         Binding("f", "toggle_favorites", "Favorites"),
@@ -41,6 +42,7 @@ class Dashboard(Screen):
             # Top bar with stats and actions
             with Horizontal(id="top-bar"):
                 yield Label("📊 Project Manager", id="title")
+                yield Label("", id="stats")
                 yield Button("⭐ Favorites", id="favorites-btn", variant="primary")
                 yield Button("➕ New", id="new-btn", variant="success")
                 yield Button("🔄 Refresh", id="refresh-btn")
@@ -68,6 +70,7 @@ class Dashboard(Screen):
         try:
             self.projects = self.db_manager.get_all_projects(enabled_only=True)
             self.filtered_projects = self.projects.copy()
+            self.update_stats()
             self.display_projects()
         except Exception as e:
             self.notify(f"Error loading projects: {e}", severity="error")
@@ -95,9 +98,19 @@ class Dashboard(Screen):
         container.remove_children()
 
         if not self.filtered_projects:
+            # Give a useful empty state, especially when filters are active.
+            active_bits = []
+            if self.search_query:
+                active_bits.append(f"search='{self.search_query}'")
+            if self.selected_tags:
+                active_bits.append(f"tags={len(self.selected_tags)}")
+            if self.favorites_only:
+                active_bits.append("favorites")
+
+            suffix = f"\n[dim]Active filters: {', '.join(active_bits)} • Press Esc to clear[/dim]" if active_bits else ""
             container.mount(
                 Label(
-                    "No projects found. Press 'n' to add a new project.",
+                    f"No projects found. Press 'n' to add a new project.{suffix}",
                     id="empty-message"
                 )
             )
@@ -120,11 +133,23 @@ class Dashboard(Screen):
             # Check search query
             if self.search_query:
                 query_lower = self.search_query.lower()
-                name_match = query_lower in project.get('name', '').lower()
-                path_match = query_lower in project.get('root_path', '').lower()
-                notes_match = query_lower in project.get('notes', '').lower()
+                # Many fields can be None depending on DB history/migrations; normalize to strings.
+                name_text = project.get("name") or ""
+                path_text = project.get("root_path") or ""
+                notes_text = project.get("notes") or ""
+                ai_name_text = project.get("ai_app_name") or ""
+                ai_desc_text = project.get("description") or project.get("ai_app_description") or ""
 
-                if not (name_match or path_match or notes_match):
+                tags_value = project.get("tags") or []
+                if isinstance(tags_value, str):
+                    tags_text = tags_value
+                else:
+                    tags_text = " ".join([str(t) for t in tags_value if t])
+
+                haystack = " ".join([name_text, path_text, tags_text, ai_name_text, ai_desc_text, notes_text]).lower()
+                match = query_lower in haystack
+
+                if not match:
                     continue
 
             # Check tag filter
@@ -135,7 +160,28 @@ class Dashboard(Screen):
 
             self.filtered_projects.append(project)
 
+        self.update_stats()
         self.display_projects()
+
+    def update_stats(self) -> None:
+        """Update top-bar stats label."""
+        try:
+            stats = self.query_one("#stats", Label)
+        except Exception:
+            return
+
+        total = len(self.projects)
+        shown = len(self.filtered_projects) if self.filtered_projects is not None else 0
+        filters = []
+        if self.favorites_only:
+            filters.append("⭐")
+        if self.selected_tags:
+            filters.append(f"🏷️ {len(self.selected_tags)}")
+        if self.search_query:
+            filters.append("🔍")
+
+        suffix = f"  [dim]{' '.join(filters)}[/dim]" if filters else ""
+        stats.update(f"[dim]{shown}/{total} shown[/dim]{suffix}")
 
     # Event handlers
     def on_search_bar_search_changed(self, message: SearchBar.SearchChanged) -> None:
@@ -173,6 +219,7 @@ class Dashboard(Screen):
         self.favorites_only = not self.favorites_only
         btn = self.query_one("#favorites-btn", Button)
         btn.variant = "warning" if self.favorites_only else "primary"
+        btn.label = "⭐ Favorites (On)" if self.favorites_only else "⭐ Favorites"
         self.apply_filters()
 
     def action_new_project(self) -> None:
@@ -186,12 +233,42 @@ class Dashboard(Screen):
         self.load_projects()
         self.notify("Projects refreshed", severity="information")
 
+    def action_clear_filters(self) -> None:
+        """Clear search + tag + favorites filters."""
+        cleared_any = bool(self.search_query or self.selected_tags or self.favorites_only)
+        self.search_query = ""
+        self.selected_tags = []
+        self.favorites_only = False
+
+        # Update UI widgets if present.
+        try:
+            search_bar = self.query_one("#search-bar", SearchBar)
+            search_bar.clear()
+        except Exception:
+            pass
+        try:
+            btn = self.query_one("#favorites-btn", Button)
+            btn.variant = "primary"
+            btn.label = "⭐ Favorites"
+        except Exception:
+            pass
+        try:
+            tag_filter = self.query_one("#tag-filter", TagFilter)
+            tag_filter.clear_selection()
+        except Exception:
+            pass
+
+        self.apply_filters()
+        if cleared_any:
+            self.notify("Cleared filters", severity="information", timeout=1.5)
+
     def action_help(self) -> None:
         """Show help dialog."""
         help_text = """
         Keyboard Shortcuts:
 
         /  - Focus search
+        Esc - Clear filters
         n  - New project
         r  - Refresh
         f  - Toggle favorites

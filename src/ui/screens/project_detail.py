@@ -34,7 +34,7 @@ class ProjectDetailScreen(Screen):
             with Horizontal(id="project-header"):
                 favorite = self.project.get('favorite', 0)
                 favorite_icon = "⭐" if favorite else "☆"
-                name = self.project.get('name', 'Unknown')
+                name = self.project.get('ai_app_name') or self.project.get('name', 'Unknown')
 
                 yield Label(f"{favorite_icon} {name}", id="project-title")
 
@@ -49,10 +49,10 @@ class ProjectDetailScreen(Screen):
                     tag_text = ", ".join(tags)
                     yield Label(f"🏷️  Tags: {tag_text}", classes="metadata-row")
 
-                # AI info
-                ai_desc = self.project.get('ai_app_description')
-                if ai_desc:
-                    yield Label(f"🤖 AI Description: {ai_desc}", classes="metadata-row")
+                # Description (prefer explicit field; fall back to legacy AI description)
+                desc = self.project.get('description') or self.project.get('ai_app_description')
+                if desc:
+                    yield Label(f"📝 Description: {desc}", classes="metadata-row")
 
                 # Stats
                 open_count = self.project.get('open_count', 0)

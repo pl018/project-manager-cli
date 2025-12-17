@@ -19,7 +19,7 @@ class SearchBar(Static):
             with Horizontal(classes="search-bar-horizontal"):
                 yield Label("🔍", classes="search-icon")
                 self.search_input = Input(
-                    placeholder="Search projects... (press / to focus)",
+                    placeholder="Search projects…  (/ to focus • Esc to clear)",
                     classes="search-input"
                 )
                 yield self.search_input

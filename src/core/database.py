@@ -75,6 +75,7 @@ class DatabaseManager:
             tags TEXT,
             ai_app_name TEXT,
             ai_app_description TEXT,
+            description TEXT,
             notes TEXT,
             favorite INTEGER DEFAULT 0,
             last_opened TEXT,
@@ -161,6 +162,7 @@ class DatabaseManager:
 
             # Define required columns with their SQL definitions
             required_columns = {
+                'description': 'TEXT',
                 'notes': 'TEXT',
                 'favorite': 'INTEGER DEFAULT 0',
                 'last_opened': 'TEXT',
@@ -214,7 +216,7 @@ class DatabaseManager:
         # Database fields
         db_fields = [
             'uuid', 'name', 'root_path', 'tags', 'ai_app_name',
-            'ai_app_description', 'notes', 'favorite', 'last_opened',
+            'ai_app_description', 'description', 'notes', 'favorite', 'last_opened',
             'open_count', 'date_added', 'last_updated', 'enabled', 'color_theme'
         ]
 
@@ -279,6 +281,11 @@ class DatabaseManager:
 
         return projects
 
+    # Backward-compatibility helpers (older CLI layers used these names)
+    def get_all_enabled_projects(self) -> List[Dict[str, Any]]:
+        """Fetch all enabled projects (backward compatible alias)."""
+        return self.get_all_projects(enabled_only=True)
+
     def search_projects(self, query: str = "", tags: List[str] = None,
                        favorites_only: bool = False) -> List[Dict[str, Any]]:
         """Search projects with filters."""
@@ -292,10 +299,20 @@ class DatabaseManager:
                 cursor.execute("PRAGMA table_info(projects)")
                 columns = [row[1] for row in cursor.fetchall()]
                 has_notes = 'notes' in columns
+                has_description = 'description' in columns
             except:
                 has_notes = False
+                has_description = False
             
-            if has_notes:
+            if has_notes and has_description:
+                conditions.append("(name LIKE ? OR root_path LIKE ? OR description LIKE ? OR notes LIKE ?)")
+                search_term = f"%{query}%"
+                params.extend([search_term, search_term, search_term, search_term])
+            elif has_description:
+                conditions.append("(name LIKE ? OR root_path LIKE ? OR description LIKE ?)")
+                search_term = f"%{query}%"
+                params.extend([search_term, search_term, search_term])
+            elif has_notes:
                 conditions.append("(name LIKE ? OR root_path LIKE ? OR notes LIKE ?)")
                 search_term = f"%{query}%"
                 params.extend([search_term, search_term, search_term])

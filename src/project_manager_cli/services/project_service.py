@@ -1,9 +1,7 @@
 """Project context service for the project manager CLI."""
 
-import glob
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -41,19 +39,69 @@ class ProjectContext:
     def get_file_samples(self) -> Optional[Dict[str, str]]:
         """Collects file samples from the repository for AI analysis."""
         try:
-            # Create exclude pattern from directories to exclude
-            exclude_pattern = re.compile(f'({"|".join(Config.EXCLUDE_DIRS)})')
-            
-            # Get all files recursively
-            all_files = []
-            for ext in Config.IMPORTANT_EXTENSIONS:
-                pattern = f"**/*{ext}"
-                files = [f for f in glob.glob(pattern, recursive=True) 
-                         if not exclude_pattern.search(f)]
-                all_files.extend(files)
-            
-            # Limit to the most important files
-            selected_files = all_files[:Config.MAX_FILES_TO_ANALYZE]
+            base_dir = Path.cwd()
+            exclude_dirs = set(str(d) for d in (Config.EXCLUDE_DIRS or []))
+            allowed_exts = set(str(e).lower() for e in (Config.IMPORTANT_EXTENSIONS or []))
+            max_files = int(Config.MAX_FILES_TO_ANALYZE)
+
+            self.logger.info(colored("Collecting file samples for AI tagging (README-first)...", "cyan"))
+
+            # Prioritize README files so the AI understands the project "why/how" first.
+            readme_candidates = [
+                "README.md", "readme.md",
+                "README.rst", "readme.rst",
+                "README.txt", "readme.txt",
+                "README", "readme",
+            ]
+            priority_files: list[str] = []
+            for name in readme_candidates:
+                p = base_dir / name
+                if p.exists() and p.is_file():
+                    priority_files.append(str(p))
+
+            # Walk the tree and stop as soon as we have enough samples.
+            selected_files: list[str] = []
+            seen: set[str] = set()
+            for f in priority_files:
+                if f not in seen:
+                    seen.add(f)
+                    selected_files.append(f)
+
+            if len(selected_files) < max_files:
+                stop = False
+                for root, dirnames, filenames in os.walk(base_dir, topdown=True):
+                    # Prune excluded directories for performance
+                    dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+
+                    for filename in filenames:
+                        p = Path(root) / filename
+                        # Skip huge files early
+                        try:
+                            if p.stat().st_size > 1_000_000:
+                                continue
+                        except Exception:
+                            continue
+
+                        # Include README anywhere, otherwise filter by extension
+                        name_lower = p.name.lower()
+                        if name_lower.startswith("readme"):
+                            pass
+                        else:
+                            ext = p.suffix.lower()
+                            if ext not in allowed_exts:
+                                continue
+
+                        sp = str(p)
+                        if sp in seen:
+                            continue
+                        seen.add(sp)
+                        selected_files.append(sp)
+                        if len(selected_files) >= max_files:
+                            stop = True
+                            break
+
+                    if stop:
+                        break
             
             if not selected_files:
                 self.logger.warning(colored("No suitable files found for AI analysis", "yellow"))
@@ -65,7 +113,8 @@ class ProjectContext:
             
             for file_path in selected_files:
                 try:
-                    if os.path.getsize(file_path) > 1000000:  # Skip files > 1MB
+                    # Already size-checked above, but keep a defensive guard
+                    if os.path.getsize(file_path) > 1_000_000:
                         continue
                         
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -84,6 +133,41 @@ class ProjectContext:
         except Exception as e:
             self.logger.warning(colored(f"Error collecting file samples: {str(e)}", "yellow"))
             return None 
+
+    def get_readme_summary(self, max_chars: int = 240) -> Optional[str]:
+        """Best-effort short description derived from README (first meaningful line)."""
+        try:
+            readme_paths = [
+                Path("README.md"), Path("readme.md"),
+                Path("README.rst"), Path("readme.rst"),
+                Path("README.txt"), Path("readme.txt"),
+                Path("README"), Path("readme"),
+            ]
+            readme = next((p for p in readme_paths if p.exists() and p.is_file()), None)
+            if not readme:
+                return None
+
+            text = readme.read_text(encoding="utf-8", errors="ignore")
+            if not text:
+                return None
+
+            # Pick the first non-empty, non-badge-ish line.
+            for raw_line in text.splitlines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                # Skip headings and common badge/image lines
+                if line.startswith("#"):
+                    continue
+                if line.startswith("![") or line.startswith("[![") or "shields.io" in line.lower():
+                    continue
+                # Trim to a short sentence-ish snippet
+                if len(line) > max_chars:
+                    line = line[:max_chars].rstrip() + "…"
+                return line
+            return None
+        except Exception:
+            return None
 
     def detect_dominant_extension(self) -> Optional[str]:
         """Detect the dominant file extension in the project.

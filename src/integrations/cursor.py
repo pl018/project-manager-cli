@@ -1,6 +1,5 @@
 """Cursor IDE integration."""
 
-import json
 import os
 import subprocess
 from pathlib import Path
@@ -44,55 +43,36 @@ class CursorIntegration(ToolIntegration):
         return any(path.exists() for path in paths)
 
     def open_project(self, path: str) -> bool:
-        """Open a project in Cursor."""
+        """Open a project in Cursor by launching terminal and running 'cursor .'"""
         try:
-            if self.check_command("cursor"):
+            if os.name == 'nt':  # Windows
+                # Open Windows Terminal (or cmd) and run 'cursor .'
+                if self.check_command("wt"):
+                    subprocess.Popen(
+                        ['wt', '-d', path, 'cmd', '/c', 'cursor .'],
+                        creationflags=subprocess.DETACHED_PROCESS
+                    )
+                else:
+                    subprocess.Popen(
+                        ['cmd', '/c', f'cd /d {path} && cursor .'],
+                        creationflags=subprocess.DETACHED_PROCESS
+                    )
+                return True
+
+            elif os.name == 'posix':
+                # macOS/Linux - open terminal and run 'cursor .'
                 subprocess.Popen(
-                    ['cursor', path],
+                    ['bash', '-c', f'cd "{path}" && cursor .'],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True
                 )
                 return True
 
-            # Try platform-specific approaches
-            if os.name == 'nt':  # Windows
-                cursor_path = self._find_windows_cursor()
-                if cursor_path:
-                    subprocess.Popen(
-                        [str(cursor_path), path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=subprocess.DETACHED_PROCESS
-                    )
-                    return True
-
-            elif os.name == 'posix':
-                # macOS
-                if Path('/Applications/Cursor.app').exists():
-                    subprocess.Popen(
-                        ['open', '-a', 'Cursor', path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True
-                    )
-                    return True
-
             return False
         except Exception as e:
             print(f"Error opening Cursor: {e}")
             return False
-
-    def _find_windows_cursor(self) -> Optional[Path]:
-        """Find Cursor executable on Windows."""
-        paths = [
-            Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'cursor' / 'Cursor.exe',
-            Path(os.environ.get('PROGRAMFILES', '')) / 'Cursor' / 'Cursor.exe',
-        ]
-        for path in paths:
-            if path.exists():
-                return path
-        return None
 
     def get_config_path(self) -> Optional[Path]:
         """Get Cursor's projects.json path."""

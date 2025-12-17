@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "project-manager-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "A CLI tool for managing project metadata and Cursor project integration"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,11 @@ dependencies = [
     "click>=8.0.0",
 ]
 
+[project.optional-dependencies]
+gui = [
+    "PySide6>=6.7.0",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/yourusername/project-manager-cli"
@@ -34,9 +39,10 @@ Issues = "https://github.com/yourusername/project-manager-cli/issues"
 [project.scripts]
 project-manager-cli = "project_manager_cli.cli:main"
 pm-cli = "project_manager_cli.cli:main"
+pm-gui = "project_manager_desktop.main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/project_manager_cli", "src/core", "src/ui", "src/integrations"]
+packages = ["src/project_manager_cli", "src/project_manager_desktop", "src/core", "src/ui", "src/integrations"]
 
 [tool.hatch.build.targets.sdist]
 include = [

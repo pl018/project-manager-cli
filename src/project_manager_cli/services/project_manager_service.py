@@ -72,18 +72,18 @@ class ProjectManager:
             tags = [t for t in tags if t]
             tags = tags[:3]
             
-            # Use AI-generated app name if available, otherwise use folder name
+            # For consistency: the identifying project name stored in the DB is always the project directory name.
+            # AI can still generate a "friendly name" (ai_app_name) for display purposes, but we don't overwrite name.
             project_name = project_info.rootFolderName
-            if ai_info_model and ai_info_model.app_name:
-                project_name = ai_info_model.app_name
-                self.logger.info(colored(f"✓ Using AI-generated name '{project_name}' for project entry", "green"))
-            
-            # Indicate language via dominant file extension in the project name (e.g., MyApp.py)
-            dominant_ext = project_context.detect_dominant_extension()
-            if dominant_ext and not project_name.endswith(dominant_ext):
-                project_name = f"{project_name}{dominant_ext}"
                 
             current_time_iso = datetime.now().isoformat()
+
+            # Short description: prefer AI summary, otherwise fall back to README-derived summary.
+            description = None
+            if ai_info_model and ai_info_model.app_description:
+                description = ai_info_model.app_description
+            else:
+                description = project_context.get_readme_summary()
 
             payload = {
                 "uuid": project_uuid,
@@ -92,6 +92,7 @@ class ProjectManager:
                 "tags": tags, # Already normalized, minimal, and de-duplicated in-order
                 "ai_app_name": ai_info_model.app_name if ai_info_model else None,
                 "ai_app_description": ai_info_model.app_description if ai_info_model else None,
+                "description": description,
                 "date_added": current_time_iso, # Will be handled by DB logic for existing entries
                 "last_updated": current_time_iso,
                 "enabled": True,
@@ -111,18 +112,28 @@ class ProjectManager:
         """Generate projects.json from SQLite data."""
         try:
             self.logger.info(colored("Regenerating projects.json for Cursor Project Manager...", "cyan"))
-            projects_data = db_manager.get_all_enabled_projects()
+            # Core DatabaseManager exposes get_all_projects(enabled_only=True). Keep logic here resilient
+            # in case db_manager is an older/newer implementation.
+            if hasattr(db_manager, "get_all_projects"):
+                projects_data = db_manager.get_all_projects(enabled_only=True)
+            else:
+                projects_data = db_manager.get_all_enabled_projects()
             
             cursor_project_entries = []
             for proj_dict in projects_data:
                 # Map DB data to ProjectEntry Pydantic model
-                # Assuming 'tags' in DB is JSON string, needs parsing
-                db_tags_str = proj_dict.get('tags', '[]')
-                try:
-                    db_tags = json.loads(db_tags_str)
-                except json.JSONDecodeError:
-                    db_tags = [] # Default to empty list if JSON is invalid
-                    self.logger.warning(f"Could not parse tags JSON from DB for {proj_dict.get('uuid')}: {db_tags_str}")
+                # Tags may already be a list (core DatabaseManager parses JSON), or a JSON string in older DB layers.
+                tags_value = proj_dict.get("tags") or []
+                if isinstance(tags_value, str):
+                    try:
+                        db_tags = json.loads(tags_value)
+                    except json.JSONDecodeError:
+                        db_tags = []
+                        self.logger.warning(
+                            f"Could not parse tags JSON from DB for {proj_dict.get('uuid')}: {tags_value}"
+                        )
+                else:
+                    db_tags = tags_value
 
                 entry = ProjectEntry(
                     name=proj_dict['name'],

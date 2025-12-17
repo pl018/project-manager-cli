@@ -925,7 +925,7 @@ class HTMLGenerator:
     def _build_project_card(self, project: Dict[str, Any]) -> str:
         """Build HTML for a single project card."""
         name = html.escape(project.get("ai_app_name") or project.get("name", "Unknown"))
-        description = html.escape(project.get("ai_app_description") or "")
+        description = html.escape(project.get("description") or project.get("ai_app_description") or "")
         root_path = project.get("root_path", "")
         root_path_escaped = html.escape(root_path)
         is_favorite = project.get("favorite", False)

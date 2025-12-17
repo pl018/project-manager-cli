@@ -42,6 +42,7 @@ class Project(BaseModel):
     tags: List[str] = Field(default_factory=list)
     ai_app_name: Optional[str] = None
     ai_app_description: Optional[str] = None
+    description: Optional[str] = None
     notes: Optional[str] = None
     favorite: bool = False
     last_opened: Optional[datetime] = None

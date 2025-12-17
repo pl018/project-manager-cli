@@ -3,9 +3,9 @@
 from textual.app import App
 from textual.binding import Binding
 
-from ..core.config import Config
-from ..core.database import DatabaseManager
-from ..integrations.registry import ToolRegistry
+from core.config import Config
+from core.database import DatabaseManager
+from integrations.registry import ToolRegistry
 from .screens.dashboard import Dashboard
 
 
@@ -39,7 +39,7 @@ class ProjectManagerApp(App):
         height: 3;
         padding: 1;
         background: $panel;
-        border: solid $primary;
+        border: round $primary;
     }
 
     #title {
@@ -47,6 +47,13 @@ class ProjectManagerApp(App):
         content-align: left middle;
         text-style: bold;
         color: $accent;
+    }
+
+    #stats {
+        width: auto;
+        content-align: right middle;
+        color: $text-muted;
+        margin-right: 1;
     }
 
     Button {
@@ -62,7 +69,7 @@ class ProjectManagerApp(App):
     .search-container {
         height: 3;
         background: $panel;
-        border: solid $primary;
+        border: round $primary;
     }
 
     .search-bar-horizontal {
@@ -91,7 +98,7 @@ class ProjectManagerApp(App):
         height: auto;
         padding: 1;
         background: $panel;
-        border: solid $accent;
+        border: round $primary;
     }
 
     .tag-pill {
@@ -99,18 +106,33 @@ class ProjectManagerApp(App):
         width: auto;
         margin-right: 1;
         padding: 0 1;
-        background: $primary;
-        border: solid $accent;
+        background: $surface;
+        border: round $primary;
+    }
+
+    .tag-pill.selected {
+        background: $accent;
+        border: round $accent;
+        color: $text;
+        text-style: bold;
+    }
+
+    .tag-pill:focus {
+        border: round $success;
     }
 
     .tag-label {
         padding: 0 1;
     }
 
+    .tag-clear-btn {
+        margin-right: 2;
+    }
+
     /* Projects Container */
     #projects-container {
         height: 1fr;
-        border: solid $primary;
+        border: round $primary;
         padding: 1;
     }
 
@@ -118,18 +140,18 @@ class ProjectManagerApp(App):
     .project-card {
         height: auto;
         margin-bottom: 1;
-        padding: 1;
+        padding: 1 2;
         background: $panel;
-        border: heavy $primary;
+        border: round $primary;
     }
 
     .project-card:hover {
-        border: heavy $accent;
+        border: round $accent;
         background: $surface;
     }
 
     .project-card:focus {
-        border: heavy $success;
+        border: round $success;
     }
 
     .project-name {

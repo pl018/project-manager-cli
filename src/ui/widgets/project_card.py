@@ -7,12 +7,17 @@ from textual.containers import Container
 from textual.widgets import Label, Static
 from textual.reactive import reactive
 from textual.message import Message
+from textual.binding import Binding
 
 
 class ProjectCard(Static, can_focus=True):
     """A beautiful card displaying project information."""
 
     BORDER_TITLE = "Project"
+    BINDINGS = [
+        Binding("enter", "open", "Open", show=False),
+        Binding("o", "open", "Open", show=False),
+    ]
 
     def __init__(self, project: dict, **kwargs):
         super().__init__(**kwargs)
@@ -23,31 +28,31 @@ class ProjectCard(Static, can_focus=True):
         """Create child widgets."""
         with Container(classes="project-card-container"):
             # Project name and favorite indicator
-            name = self.project.get('name', 'Unknown')
+            name = self.project.get('ai_app_name') or self.project.get('name') or 'Unknown'
             favorite = self.project.get('favorite', 0)
             favorite_icon = "⭐ " if favorite else ""
 
             yield Label(f"{favorite_icon}{name}", classes="project-name")
 
             # Path
-            path = self.project.get('root_path', '')
+            path = self.project.get('root_path') or ''
             yield Label(f"📁 {path}", classes="project-path")
 
             # Tags
-            tags = self.project.get('tags', [])
+            tags = self.project.get('tags') or []
             if tags:
                 tag_text = " ".join([f"[{tag}]" for tag in tags[:5]])
                 yield Label(f"🏷️  {tag_text}", classes="project-tags")
 
-            # AI Description
-            ai_description = self.project.get('ai_app_description', '')
-            if ai_description:
+            # Description (prefer explicit field; fall back to legacy AI description)
+            description = (self.project.get('description') or self.project.get('ai_app_description') or '').strip()
+            if description:
                 # Truncate if too long
-                desc_preview = ai_description[:100] + "..." if len(ai_description) > 100 else ai_description
+                desc_preview = description[:100] + "..." if len(description) > 100 else description
                 yield Label(desc_preview, classes="project-description")
 
             # Notes preview (if available)
-            notes = self.project.get('notes', '')
+            notes = self.project.get('notes') or ''
             if notes:
                 # Show first line or first 80 chars of notes
                 first_line = notes.split('\n')[0]
@@ -96,6 +101,10 @@ class ProjectCard(Static, can_focus=True):
 
     def on_click(self) -> None:
         """Handle click events."""
+        self.post_message(self.Selected(self.project))
+
+    def action_open(self) -> None:
+        """Open this project (keyboard)."""
         self.post_message(self.Selected(self.project))
 
     class Selected(Message):

@@ -36,6 +36,73 @@ def cli():
     pass
 
 
+@cli.group("context-menu", cls=RichGroup)
+def context_menu():
+    """Windows Explorer right-click integration (context menu shortcuts)."""
+    pass
+
+
+@context_menu.command("install", cls=RichCommand)
+@click.option("--force", is_flag=True, help="Overwrite/update existing context menu entry if already installed")
+def context_menu_install(force: bool):
+    """Install a Windows Explorer context-menu entry for running pm-cli on a folder.
+
+    After installing, you can:
+    - Right-click a folder and choose "Run Project Manager (pm-cli)"
+    - Or right-click inside a folder (background) and choose the same item
+
+    This opens a new PowerShell window, runs `pm-cli run` on that folder, then waits for a keypress to close.
+    """
+    from .services.windows_context_menu_service import WindowsContextMenuService
+
+    svc = WindowsContextMenuService()
+    if not svc.is_supported():
+        console.print("[yellow]INFO:[/yellow] Explorer context menu install is only supported on Windows.")
+        return
+
+    result = svc.install(force=force)
+    if not result.installed:
+        console.print(f"[bold red]ERROR:[/bold red] {result.message}")
+        raise SystemExit(1)
+
+    console.print(f"[green]{safe_emoji('✓', 'OK')}[/green] {result.message}")
+    console.print(f"[dim]PowerShell:[/dim] {result.pwsh_path}")
+    console.print(f"[dim]Python:[/dim] {result.python_exe}")
+
+
+@context_menu.command("uninstall", cls=RichCommand)
+def context_menu_uninstall():
+    """Remove the Windows Explorer context-menu entry (if installed)."""
+    from .services.windows_context_menu_service import WindowsContextMenuService
+
+    svc = WindowsContextMenuService()
+    if not svc.is_supported():
+        console.print("[yellow]INFO:[/yellow] Explorer context menu uninstall is only supported on Windows.")
+        return
+
+    removed = svc.uninstall()
+    if removed:
+        console.print(f"[green]{safe_emoji('✓', 'OK')}[/green] Removed Explorer context menu entry.")
+    else:
+        console.print("[dim]INFO: Context menu entry was not installed.[/dim]")
+
+
+@context_menu.command("status", cls=RichCommand)
+def context_menu_status():
+    """Show whether the Windows Explorer context-menu entry is installed."""
+    from .services.windows_context_menu_service import WindowsContextMenuService
+
+    svc = WindowsContextMenuService()
+    if not svc.is_supported():
+        console.print("[yellow]INFO:[/yellow] Explorer context menu is only supported on Windows.")
+        return
+
+    if svc.is_installed():
+        console.print("[green]Installed[/green] - Explorer context menu entry is present.")
+    else:
+        console.print("[yellow]Not installed[/yellow] - Run [cyan]pm-cli context-menu install[/cyan].")
+
+
 @cli.command(cls=RichCommand)
 @click.option('--db-path', type=click.Path(), help='Path to store the SQLite database')
 @click.option('--projects-file', type=click.Path(), help='Path to Cursor projects.json file')
@@ -218,6 +285,27 @@ def config():
 
 
 @cli.command(cls=RichCommand)
+def gui():
+    """Launch the desktop GUI (PySide6).
+
+    Requires the optional GUI dependency:
+
+      pip install -e ".[gui]"
+    """
+    try:
+        from project_manager_desktop.main import main as gui_main
+    except ImportError as e:
+        console.print(
+            "[bold red]ERROR:[/bold red] Desktop GUI dependencies not installed.\n\n"
+            "Install with:\n"
+            "  [cyan]pip install -e \".[gui]\"[/cyan]\n"
+        )
+        raise SystemExit(1) from e
+
+    gui_main()
+
+
+@cli.command(cls=RichCommand)
 @click.confirmation_option(prompt='Are you sure you want to reset the configuration?')
 def reset():
     """Reset configuration to defaults.
@@ -258,31 +346,17 @@ def tui():
     - f: Toggle favorites filter
     - q: Quit
     """
-    import subprocess
-    from pathlib import Path
-
-    # Get the path to main.py (in project root)
-    project_root = Path(__file__).parent.parent.parent.parent
-    main_py = project_root / "main.py"
-
     try:
         console.print("[bold cyan]>>> Launching Project Manager TUI...[/bold cyan]")
+        # Launch the TUI directly from the installed package.
+        # This avoids brittle assumptions about repo layout (editable installs, site-packages, etc.).
+        from ui.app import run_tui
 
-        # Use subprocess to launch TUI, maintaining architectural separation
-        result = subprocess.run(
-            [sys.executable, str(main_py)],
-            cwd=str(project_root)
-        )
-
-        sys.exit(result.returncode)
-
-    except FileNotFoundError:
-        console.print(f"[red]ERROR: Could not find main.py at:[/red] {main_py}")
-        console.print("[yellow]Make sure you're running from the project directory[/yellow]")
-        sys.exit(1)
+        run_tui()
+        return
     except KeyboardInterrupt:
         console.print("\n\n[bold]Goodbye![/bold]")
-        sys.exit(0)
+        return
     except Exception as e:
         console.print(f"[bold red]ERROR: Launching TUI failed:[/bold red] {e}")
         sys.exit(1)

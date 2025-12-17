@@ -85,6 +85,21 @@ Both modes share the same SQLite database, so your projects are synchronized acr
 
 ### CLI Commands
 
+#### Windows Explorer right-click (Context Menu)
+
+On Windows, you can add a folder right-click menu item that opens a new PowerShell window, runs `pm-cli run` on that folder, then waits for a keypress before closing.
+
+```bash
+# Install (no admin required)
+pm-cli context-menu install
+
+# Verify
+pm-cli context-menu status
+
+# Remove
+pm-cli context-menu uninstall
+```
+
 #### Initialize Configuration
 
 ```bash

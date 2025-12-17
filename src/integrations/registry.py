@@ -4,9 +4,9 @@ from typing import Dict, List, Optional
 
 from .base import ToolIntegration
 from .cursor import CursorIntegration
+from .explorer import ExplorerIntegration
 from .jetbrains import IntelliJIntegration, PyCharmIntegration, WebStormIntegration
 from .terminal import TerminalIntegration, WarpIntegration
-from .vscode import VSCodeIntegration
 
 
 class ToolRegistry:
@@ -20,8 +20,7 @@ class ToolRegistry:
         """Initialize all tool integrations."""
         tools = [
             CursorIntegration(),
-            VSCodeIntegration(insiders=False),
-            VSCodeIntegration(insiders=True),
+            ExplorerIntegration(),
             PyCharmIntegration(),
             WebStormIntegration(),
             IntelliJIntegration(),

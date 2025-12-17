@@ -104,6 +104,16 @@ class Application:
 
     def run(self) -> None:
         """Run the application."""
+        # Ensure Windows consoles don't crash on Unicode (checkmarks/emojis).
+        # We prefer preserving Unicode when possible, but never want output encoding
+        # issues to abort the command.
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                if hasattr(stream, "reconfigure"):
+                    stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
         # Initial print statements before logging is fully set up.
         print(colored("=== Cursor Project Updater (SQLite Edition) ===", "cyan"))
 
@@ -159,8 +169,6 @@ class Application:
             
             # Print log file location
             self.logger.info(colored(f"Log file is at: {os.path.abspath(self.log_file_path)}", "cyan"))
-            # Also print to console as logger might not show this if level is higher
-            print(colored(f"Log file is at: {os.path.abspath(self.log_file_path)}", "cyan"))
 
         except (ConfigError, ProjectManagerError, AITaggingError) as e:
             if self.logger:
