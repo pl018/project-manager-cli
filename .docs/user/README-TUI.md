@@ -2,8 +2,7 @@
 
 A beautiful, modern terminal-based project manager with multi-tool integration, AI-powered tagging, and rich note-taking capabilities.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
-![Python](https://img.shields.io/badge/python-3.8+-green)
+![Python](https://img.shields.io/badge/python-3.12+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
 ## ✨ Features
@@ -61,20 +60,34 @@ git clone <your-repo-url>
 cd project-manager-cli
 ```
 
-2. **Install dependencies**
+2. **Install the package** (development mode)
 ```bash
-pip install -r requirements-new.txt
+pip install -e .
 ```
 
-3. **Set up OpenAI API (optional, for AI tagging)**
-Create a `.env` file in the project root:
-```env
-OPENAI_API_KEY=your_api_key_here
+Or using UV (recommended):
+```bash
+uv pip install -e .
 ```
+
+3. **Initialize configuration**
+```bash
+pm-cli init
+```
+
+This will prompt you for:
+- Database location (defaults provided)
+- Cursor `projects.json` path
+- Optional OpenAI API key for AI tagging
 
 4. **Run the TUI**
 ```bash
 python main.py
+```
+
+Or use the CLI command:
+```bash
+pm-cli tui
 ```
 
 ### First Use
@@ -82,9 +95,9 @@ python main.py
 When you first run the TUI, you'll see an empty project list. To add projects:
 
 1. Navigate to any project directory
-2. Run the legacy CLI tool to register it:
+2. Run the CLI tool to register it:
    ```bash
-   python pyproject.py
+   pm-cli run
    ```
 3. Return to the TUI and press `r` to refresh
 
@@ -230,8 +243,8 @@ The new TUI is fully backward compatible with the original `pyproject.py` CLI to
 ## 🐛 Troubleshooting
 
 ### TUI doesn't start
-- Ensure Python 3.8+ is installed
-- Install Textual: `pip install textual`
+- Ensure Python 3.12+ is installed
+- Verify installation: `pip install -e .` or `uv pip install -e .`
 - Check terminal compatibility: `python -m textual --version`
 
 ### Projects not showing
