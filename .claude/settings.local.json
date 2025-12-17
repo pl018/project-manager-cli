@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "000-jeremy-content-consistency-validator@claude-code-plugins-plus": true
+  }
+}
