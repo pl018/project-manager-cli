@@ -7,9 +7,9 @@ from typing import Dict, Any, Optional, Tuple, List
 
 from termcolor import colored
 
-from ..config import config as Config
-from ..exceptions import ProjectManagerError
-from ..models import ProjectInfo, AIGeneratedInfo, ProjectEntry
+from core.config_manager import config as Config
+from core.exceptions import ProjectManagerError
+from core.models import ProjectInfo, AIGeneratedInfo, ProjectEntry
 from .ai_service import AITaggingService
 from .project_service import ProjectContext
 

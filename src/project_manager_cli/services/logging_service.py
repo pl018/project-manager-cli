@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
-from ..config import config as Config
+from core.config_manager import config as Config
 
 
 class LoggingManager:

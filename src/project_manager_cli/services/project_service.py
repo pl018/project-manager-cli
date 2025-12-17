@@ -9,9 +9,9 @@ from typing import Dict, Optional
 
 from termcolor import colored
 
-from ..config import config as Config
-from ..exceptions import ProjectManagerError
-from ..models import ProjectInfo
+from core.config_manager import config as Config
+from core.exceptions import ProjectManagerError
+from core.models import ProjectInfo
 
 
 class ProjectContext:

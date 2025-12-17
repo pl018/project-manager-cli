@@ -1,4 +1,4 @@
-"""Application configuration."""
+"""Application configuration - static constants."""
 
 import os
 from pathlib import Path
@@ -10,34 +10,38 @@ load_dotenv()
 
 
 class Config:
-    """Application configuration constants and environment variables."""
+    """Application configuration constants and environment variables.
+
+    Note: For CLI usage, import the dynamic config instance from core.config_manager instead.
+    This class is primarily for static constants and TUI usage.
+    """
 
     # Version
     VERSION = "2.0.0"
     APP_NAME = "Project Manager TUI"
-
-    # Cursor Integration (backward compatibility)
-    PROJECTS_FILE = os.path.join(
-        os.environ.get('APPDATA', str(Path.home() / '.config')),
-        'Cursor', 'User', 'globalStorage',
-        'alefragnani.project-manager', 'projects.json'
-    )
 
     # Database Configuration
     UUID_FILENAME = ".pyprojectid"
     SQLITE_DB_NAME = "project_manager_data.db"
 
     # App data directory
-    _app_data_dir = Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'pyproject-cli'
+    _app_data_dir = Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'project-manager-cli'
     os.makedirs(_app_data_dir, exist_ok=True)
     SQLITE_DB_PATH = str(_app_data_dir / SQLITE_DB_NAME)
     LOG_DIR = _app_data_dir / 'logs'
     os.makedirs(LOG_DIR, exist_ok=True)
 
+    # Cursor Integration
+    PROJECTS_FILE = os.path.join(
+        os.environ.get('APPDATA', str(Path.home() / '.config')),
+        'Cursor', 'User', 'globalStorage',
+        'alefragnani.project-manager', 'projects.json'
+    )
+
     # AI Configuration
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-    OPENAI_MODEL = "gpt-4o-mini"
+    OPENAI_MODEL = "o4-mini"  # Updated to match CLI config
     OPENAI_MODEL_TEMPERATURE = 1
 
     # File Analysis Settings
@@ -55,7 +59,7 @@ class Config:
         '.toml', '.ini', '.conf', '.vue', '.svelte'
     ]
 
-    # UI Theme Configuration
+    # UI Theme Configuration (static)
     THEME = {
         'primary': '#3b82f6',      # Blue
         'success': '#10b981',      # Green
@@ -65,7 +69,7 @@ class Config:
         'muted': '#6b7280',        # Gray
     }
 
-    # Tool Integration Settings
+    # Tool Integration Settings (static)
     SUPPORTED_TOOLS = [
         'cursor',
         'vscode',
@@ -78,7 +82,7 @@ class Config:
         'iterm2'
     ]
 
-    # Default Tags
+    # Default Tags (static)
     DEFAULT_TAGS = {
         'python': {'color': '#3776ab', 'icon': '🐍'},
         'javascript': {'color': '#f7df1e', 'icon': '⚡'},
@@ -95,21 +99,4 @@ class Config:
     @classmethod
     def validate(cls) -> bool:
         """Validate required configuration."""
-        # Ensure projects file parent directory exists for Cursor integration
-        projects_file_parent_dir = Path(cls.PROJECTS_FILE).parent
-        if not projects_file_parent_dir.exists():
-            try:
-                os.makedirs(projects_file_parent_dir, exist_ok=True)
-            except OSError:
-                # Not critical if Cursor isn't installed
-                pass
-
-        # Validate SQLite DB directory
-        sqlite_db_parent_dir = Path(cls.SQLITE_DB_PATH).parent
-        if not sqlite_db_parent_dir.exists():
-            raise Exception(f"SQLite DB directory does not exist: {sqlite_db_parent_dir}")
-
-        if not os.access(sqlite_db_parent_dir, os.W_OK):
-            raise Exception(f"SQLite DB directory is not writable: {sqlite_db_parent_dir}")
-
-        return True
+        return dynamic_config.validate()
