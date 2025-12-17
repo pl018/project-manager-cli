@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Project Manager CLI is a Python-based cross-platform project management tool with dual interfaces:
+Project Manager CLI is a Python-based cross-platform project management tool with three interfaces:
 - **CLI Mode** (`pm-cli`): Command-line interface for registering and managing projects
 - **TUI Mode** (`python main.py`): Terminal User Interface built with Textual for browsing and managing projects
+- **GUI Mode** (`pm-gui`): Desktop GUI built with PySide6 (Qt) for graphical project management
 
-Both modes share a SQLite database backend and support Cursor IDE integration, AI-powered tagging via OpenAI, and multi-tool support (VS Code, PyCharm, WebStorm, etc.).
+All three modes share a SQLite database backend and support Cursor IDE integration, AI-powered tagging via OpenAI, and multi-tool support (VS Code, PyCharm, WebStorm, etc.).
 
 ## Key Commands
 
@@ -50,6 +51,14 @@ pm-cli tui
 python main.py
 ```
 
+### GUI Launch
+```bash
+# Launch desktop GUI (requires PySide6)
+pm-gui
+# Or directly
+python -m project_manager_desktop.main
+```
+
 ### Testing and Development
 There is no formal test suite currently in this project. When adding tests:
 - Follow Python pytest conventions
@@ -86,22 +95,27 @@ src/
 │   ├── jetbrains.py      # PyCharm, WebStorm, IntelliJ
 │   ├── terminal.py       # Terminal/shell integration
 │   └── registry.py       # Tool registry/factory
-└── ui/                   # TUI presentation layer (Textual)
-    ├── app.py            # ProjectManagerApp main application
-    ├── screens/
-    │   ├── dashboard.py       # Main project browser
-    │   └── project_detail.py  # Project detail view
-    └── widgets/
-        ├── project_card.py    # Project card component
-        ├── search_bar.py      # Search input widget
-        └── tag_pill.py        # Tag display widget
+├── ui/                   # TUI presentation layer (Textual)
+│   ├── app.py            # ProjectManagerApp main application
+│   ├── screens/
+│   │   ├── dashboard.py       # Main project browser
+│   │   └── project_detail.py  # Project detail view
+│   └── widgets/
+│       ├── project_card.py    # Project card component
+│       ├── search_bar.py      # Search input widget
+│       └── tag_pill.py        # Tag display widget
+└── project_manager_desktop/   # GUI presentation layer (PySide6)
+    ├── main.py           # Entry point for GUI (pm-gui)
+    ├── window.py         # MainWindow with tabs (Overview, Notes, Tools, Docs)
+    └── models.py         # Qt models (ProjectsTableModel, FilterProxyModel)
 ```
 
 ### Data Flow
 
 1. **CLI Commands** → `cli.py` (Click) → `app.py` (Application) → Services → Core Database
 2. **TUI** → `main.py` → `ui/app.py` (Textual) → Core Database → Integrations
-3. **Project Registration** → Services collect metadata → AI tagging (optional) → Database → Cursor integration
+3. **GUI** → `project_manager_desktop/main.py` → `window.py` (PySide6) → Core Database → Integrations
+4. **Project Registration** → Services collect metadata → AI tagging (optional) → Database → Cursor integration
 
 ### Database Schema
 
@@ -125,6 +139,7 @@ SQLite database with three main tables:
 ### Entry Points
 
 - `pm-cli` command: `src/project_manager_cli/cli.py:main()` (defined in pyproject.toml)
+- `pm-gui` command: `src/project_manager_desktop/main.py:main()` (defined in pyproject.toml)
 - TUI: `main.py` → `src/ui/app.py:run_tui()`
 - Legacy: `pyproject.py` (backward compatibility wrapper)
 
@@ -243,17 +258,34 @@ Uses Rich library for formatted CLI output:
 1. Add new columns/tables in `src/core/database.py` `create_tables()` method
 2. Update Pydantic models in `src/core/models.py`
 3. Add migration logic if needed (currently no formal migrations)
-4. Update both CLI and TUI layers to handle new fields
+4. Update CLI, TUI, and GUI layers to handle new fields
+
+### Adding a New GUI Widget (PySide6)
+1. Create new widget file in `src/project_manager_desktop/widgets/` (if complex)
+2. Extend `QtWidgets.QWidget` or appropriate Qt widget class
+3. Define signals and slots for event handling
+4. Add to `window.py` in appropriate tab/location
+5. Connect signals in `_connect_signals()` method
 
 ## Current Status (December 2024)
 
 ### Project State
 - ✅ **CLI Mode**: Fully functional
+- ✅ **GUI Mode**: Fully functional with all enhancements (December 17, 2024)
 - ✅ **TUI Mode**: Should be functional after refactoring (needs verification)
 - ✅ **Core Architecture**: Consolidated and clean (December 17, 2024)
 - ℹ️ **Development Phase**: Active development
 
 ### Recent Changes (December 17, 2024)
+
+**✅ GUI ENHANCEMENTS COMPLETED**
+- ✅ **Edit Tab**: Added editing for project name, description, and tags with validation
+- ✅ **Docs Tab**: Full markdown file browser with dark theme preview and syntax highlighting
+- ✅ **Delete Functionality**: Delete projects with confirmation dialog
+- ✅ **Tag Editor Widget**: Custom flow layout widget for managing tags
+- ✅ **File Opening**: Open markdown files in Cursor or default editor
+- ✅ **Doc Discovery Service**: Discovers .md/.markdown files (shared with TUI)
+- ✅ **Dark Theme Styling**: Nord-inspired color scheme with excellent readability
 
 **✅ REFACTORING COMPLETED** - PR #9 merged
 - ✅ **Phase 1**: Database schema consolidation & migration (Dec 10)
@@ -263,13 +295,18 @@ Uses Rich library for formatted CLI output:
 - ✅ **Phase 5**: Standardized error handling (removed bare except clauses)
 - 📋 **Phase 6**: Test suite infrastructure (pending)
 
-**Files Consolidated:**
-- `src/project_manager_cli/services/database_service.py` → deleted (uses `core.database`)
-- `src/project_manager_cli/config.py` → moved to `core/config_manager.py`
-- `src/project_manager_cli/models.py` → deleted (uses `core.models`)
-- `src/project_manager_cli/exceptions.py` → deleted (uses `core.exceptions`)
+**Files Created/Modified (GUI Enhancements):**
+- `src/project_manager_desktop/widgets/tag_editor.py` → NEW: Tag editor widget with QFlowLayout
+- `src/project_manager_desktop/widgets/__init__.py` → NEW: Widget package
+- `src/project_manager_cli/services/docs_discovery_service.py` → NEW: Shared doc discovery service
+- `src/core/models.py` → Added DocFile model
+- `src/core/database.py` → Added update_project_fields() method
+- `src/integrations/base.py` → Added open_file() method
+- `src/integrations/cursor.py` → Implemented open_file() for specific files
+- `src/project_manager_desktop/window.py` → Added Edit tab, implemented Docs tab, added delete button
+- `pyproject.toml` → Added markdown, pygments, pymdown-extensions to GUI dependencies
 
-**Result:** Single source of truth for all core functionality, clean architecture
+**Result:** Full-featured GUI with editing, documentation browsing, and project management
 
 ### Outstanding Work
 
@@ -279,7 +316,69 @@ Uses Rich library for formatted CLI output:
 
 ### Known Issues
 
-None currently - previous issues with duplicate code and schema mismatch have been resolved.
+None currently - all major features implemented and working.
+
+## Implementation Plans
+
+Detailed implementation plans are located in `.claude/plans/`:
+
+### ✅ GUI Enhancements (PySide6 Desktop App) - COMPLETED
+**Plan**: `.claude/plans/gui-enhancements.md`
+**Status**: ✅ Completed December 17, 2024
+
+Successfully implemented enhancements for the desktop GUI application:
+- ✅ **Edit Tab**: Full editing capabilities for project name, description, and tags with validation
+- ✅ **Docs Tab Implementation**: Complete markdown file browser
+  - File discovery service (discovers .md/.markdown files, excludes common directories)
+  - Table view with 3 columns (filename, path, modified date)
+  - Markdown preview with Nord-inspired dark theme and syntax highlighting
+  - Search/filter functionality for documents
+  - Open files in Cursor or default editor
+- ✅ **Delete Functionality**: Delete button with confirmation dialog (soft delete)
+- ✅ **Tag Editor Widget**: Custom Qt widget with flow layout for managing tags
+
+**Implementation Details**:
+- Custom QFlowLayout for tag pills with wrapping
+- Pygments syntax highlighting (Monokai theme)
+- pymdown-extensions for enhanced markdown
+- Shared doc discovery service (usable by TUI)
+- Dark theme with excellent contrast and readability
+- Proper signal/slot connections and state management
+
+**Files Created/Modified**: See "Recent Changes" section above
+
+### TUI Enhancements (Textual Terminal UI)
+**Plan**: `.claude/plans/tui-enhancements.md`
+
+Enhancements for the Textual-based terminal UI:
+- **Edit Tab**: Add editing capabilities for project name, description, and tags
+- **Docs Tab**: New tab for viewing markdown files
+  - DataTable for file list
+  - Markdown widget for preview
+  - Open files in Cursor
+- **Tabbed Interface**: Refactor ProjectDetailScreen to use TabbedContent
+- **Delete Verification**: Verify existing delete functionality works correctly
+
+**Key Files**:
+- `src/ui/screens/project_detail.py` - Refactor to tabbed layout (CRITICAL)
+- `src/ui/widgets/tag_editor.py` - NEW widget
+- `src/ui/widgets/edit_tab.py` - NEW tab component
+- `src/ui/widgets/docs_tab.py` - NEW tab component
+- `src/ui/app.py` - Add CSS styles
+- Shares core infrastructure with GUI (database, models, integrations)
+
+**Estimated Time**: ~2.5 hours
+
+### Shared Infrastructure
+
+Both plans share common infrastructure changes:
+- `src/core/models.py` - Add `DocFile` Pydantic model
+- `src/core/database.py` - Add `update_project_fields()` method
+- `src/integrations/base.py` - Add `open_file()` abstract method
+- `src/integrations/cursor.py` - Implement `open_file()` for opening specific files
+- `src/project_manager_cli/services/docs_discovery_service.py` - NEW shared service for discovering markdown files in projects
+
+**Implementation Note**: Implement shared infrastructure first (Phase 1 in both plans), then proceed with GUI or TUI specific features independently.
 
 ### OpenAI Configuration
 

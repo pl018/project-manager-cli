@@ -1,6 +1,7 @@
 """Data models for project manager."""
 
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
@@ -77,3 +78,19 @@ class SearchFilter(BaseModel):
     tools: List[str] = Field(default_factory=list)
     sort_by: str = "name"  # name, date, frequency, updated
     sort_order: str = "asc"  # asc or desc
+
+
+class DocFile(BaseModel):
+    """Documentation file model for markdown file browser."""
+    filename: str
+    full_path: Path
+    relative_path: str
+    extension: str
+    size_bytes: int
+    modified_date: datetime
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None,
+            Path: lambda v: str(v)
+        }

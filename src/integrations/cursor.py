@@ -74,6 +74,36 @@ class CursorIntegration(ToolIntegration):
             print(f"Error opening Cursor: {e}")
             return False
 
+    def open_file(self, file_path: str) -> bool:
+        """Open a specific file in Cursor."""
+        try:
+            if not Path(file_path).exists():
+                return False
+
+            if os.name == 'nt':  # Windows
+                subprocess.Popen(
+                    ['cursor', file_path],
+                    creationflags=subprocess.DETACHED_PROCESS,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                return True
+
+            elif os.name == 'posix':
+                # macOS/Linux
+                subprocess.Popen(
+                    ['cursor', file_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+                return True
+
+            return False
+        except Exception as e:
+            print(f"Error opening file in Cursor: {e}")
+            return False
+
     def get_config_path(self) -> Optional[Path]:
         """Get Cursor's projects.json path."""
         if os.name == 'nt':  # Windows

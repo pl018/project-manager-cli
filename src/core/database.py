@@ -168,6 +168,10 @@ class DatabaseManager:
                 'last_opened': 'TEXT',
                 'open_count': 'INTEGER DEFAULT 0',
                 'color_theme': "TEXT DEFAULT 'blue'",
+                'archived': 'INTEGER DEFAULT 0',
+                'archive_path': 'TEXT',
+                'archive_date': 'TEXT',
+                'archive_size_mb': 'REAL',
             }
 
             # Add missing columns
@@ -263,7 +267,7 @@ class DatabaseManager:
     def get_all_projects(self, enabled_only: bool = True) -> List[Dict[str, Any]]:
         """Fetch all projects."""
         if enabled_only:
-            sql = "SELECT * FROM projects WHERE enabled = 1 ORDER BY name COLLATE NOCASE;"
+            sql = "SELECT * FROM projects WHERE enabled = 1 AND archived = 0 ORDER BY name COLLATE NOCASE;"
         else:
             sql = "SELECT * FROM projects ORDER BY name COLLATE NOCASE;"
 
@@ -383,6 +387,37 @@ class DatabaseManager:
         )
         return True
 
+    def update_project_fields(self, project_uuid: str, **fields) -> bool:
+        """Update specific project fields (ai_app_name, description, tags)."""
+        project = self.get_project_by_uuid(project_uuid)
+        if not project:
+            raise DatabaseError(f"Project with UUID {project_uuid} not found")
+
+        # Build update statement dynamically based on provided fields
+        allowed_fields = ['ai_app_name', 'description', 'tags']
+        updates = []
+        params = []
+
+        for field, value in fields.items():
+            if field in allowed_fields:
+                if field == 'tags':
+                    # Serialize tags as JSON
+                    value = json.dumps(value) if isinstance(value, list) else value
+                updates.append(f"{field} = ?")
+                params.append(value)
+
+        if not updates:
+            return False
+
+        # Always update last_updated timestamp
+        updates.append("last_updated = ?")
+        params.append(datetime.now().isoformat())
+        params.append(project_uuid)
+
+        sql = f"UPDATE projects SET {', '.join(updates)} WHERE uuid = ?;"
+        self._execute_query(sql, tuple(params), commit=True)
+        return True
+
     def record_project_open(self, project_uuid: str) -> bool:
         """Record that a project was opened."""
         sql = """
@@ -409,6 +444,57 @@ class DatabaseManager:
         sql = "DELETE FROM projects WHERE uuid = ?;"
         self._execute_query(sql, (project_uuid,), commit=True)
         return True
+
+    def archive_project(
+        self,
+        project_uuid: str,
+        archive_path: str,
+        archive_size_mb: float
+    ) -> bool:
+        """
+        Mark project as archived and store archive metadata.
+
+        Args:
+            project_uuid: UUID of project
+            archive_path: Full path to archive ZIP file
+            archive_size_mb: Size of archive in megabytes
+
+        Returns:
+            True if successful
+        """
+        sql = """
+        UPDATE projects
+        SET archived = 1,
+            archive_path = ?,
+            archive_date = ?,
+            archive_size_mb = ?,
+            last_updated = ?
+        WHERE uuid = ?;
+        """
+        now = datetime.now().isoformat()
+        self._execute_query(
+            sql,
+            (archive_path, now, archive_size_mb, now, project_uuid),
+            commit=True
+        )
+        return True
+
+    def get_archived_projects(self) -> List[Dict[str, Any]]:
+        """Fetch all archived projects."""
+        sql = "SELECT * FROM projects WHERE archived = 1 ORDER BY archive_date DESC;"
+        rows = self._execute_query(sql, fetch_all=True)
+        projects = []
+
+        for row in rows:
+            project = dict(row)
+            if project.get('tags'):
+                try:
+                    project['tags'] = json.loads(project['tags'])
+                except json.JSONDecodeError:
+                    project['tags'] = []
+            projects.append(project)
+
+        return projects
 
     # ==================== Tag Operations ====================
 

@@ -24,6 +24,10 @@ class ToolIntegration(ABC):
         """Open a project in this tool."""
         pass
 
+    def open_file(self, file_path: str) -> bool:
+        """Open a specific file in this tool. Default implementation returns False (not supported)."""
+        return False
+
     def get_config_path(self) -> Optional[Path]:
         """Get the tool's configuration file path if applicable."""
         return None
