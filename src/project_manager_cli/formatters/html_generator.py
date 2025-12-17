@@ -66,7 +66,7 @@ class HTMLGenerator:
             if isinstance(tags, str):
                 try:
                     tags = json.loads(tags)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     tags = []
             for tag in tags:
                 all_tags.add(tag)
@@ -935,7 +935,7 @@ class HTMLGenerator:
         if isinstance(tags, str):
             try:
                 tags = json.loads(tags)
-            except:
+            except (json.JSONDecodeError, TypeError):
                 tags = []
         
         # Build tags HTML (clickable to filter)
@@ -958,7 +958,7 @@ class HTMLGenerator:
                 else:
                     dt = last_opened
                 last_opened_str = dt.strftime("%b %d, %Y")
-            except:
+            except (ValueError, TypeError, AttributeError):
                 last_opened_str = "Never"
         else:
             last_opened_str = "Never"

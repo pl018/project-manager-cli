@@ -9,13 +9,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from termcolor import colored
 
-from .config import config as Config
-from .exceptions import ConfigError, ProjectManagerError, AITaggingError
+from core.config_manager import config as Config, ConfigManager
+from core.exceptions import ConfigError, ProjectManagerError, AITaggingError
+from core.database import DatabaseManager
 from .services import (
     LoggingManager,
     AITaggingService,
     ProjectContext,
-    DatabaseManager,
     ProjectManager
 )
 
@@ -26,7 +26,7 @@ load_dotenv()
 class Application:
     """Main application class."""
     
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False) -> None:
         self.test_mode = test_mode
         self.project_uuid: str = None
         self.db_manager = DatabaseManager(Config.SQLITE_DB_PATH)
@@ -40,7 +40,7 @@ class Application:
         self.ai_service = None      # Initialized in run()
         self.project_manager = None # Initialized in run()
         
-    def _init_services(self):
+    def _init_services(self) -> None:
         """Initialize services that depend on the logger."""
         if not self.logger:
             # This should not happen if setup_logging is called first
@@ -49,7 +49,7 @@ class Application:
         self.ai_service = AITaggingService(self.logger)
         self.project_manager = ProjectManager(self.logger)
 
-    def _handle_project_uuid(self):
+    def _handle_project_uuid(self) -> None:
         """Reads or generates and saves the project UUID."""
         uuid_file_path = Path.cwd() / Config.UUID_FILENAME
         try:
@@ -81,7 +81,7 @@ class Application:
             raise ProjectManagerError(f"Failed to handle project UUID file: {e}")
 
 
-    def _setup_logging(self):
+    def _setup_logging(self) -> None:
         """Sets up logging once project_uuid (or lack thereof for test) is determined."""
         self.logger, self.log_file_path = self.logging_manager.setup(
             test_mode=self.test_mode, 

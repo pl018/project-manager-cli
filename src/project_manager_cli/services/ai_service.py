@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional, Tuple
 import requests
 from termcolor import colored
 
-from ..config import config as Config
-from ..models import AIGeneratedInfo
+from core.config_manager import config as Config
+from core.models import AIGeneratedInfo
 
 
 class AITaggingService:

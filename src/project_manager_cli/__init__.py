@@ -8,6 +8,6 @@ __email__ = "your.email@example.com"
 
 from .cli import main
 from .app import Application
-from .config import Config, ConfigManager
+from core.config_manager import DynamicConfig as Config, ConfigManager
 
 __all__ = ["main", "Application", "Config", "ConfigManager"] 

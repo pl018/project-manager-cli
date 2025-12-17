@@ -18,15 +18,17 @@ class DatabaseManager:
         self.db_path = db_path or Config.SQLITE_DB_PATH
         self.conn: Optional[sqlite3.Connection] = None
 
-    def connect(self):
+    def connect(self) -> None:
         """Establish SQLite connection."""
         try:
             self.conn = sqlite3.connect(self.db_path)
             self.conn.row_factory = sqlite3.Row
+            # Auto-migrate schema on connection
+            self._migrate_schema()
         except sqlite3.Error as e:
             raise DatabaseError(f"Failed to connect to database: {e}")
 
-    def close(self):
+    def close(self) -> None:
         """Close SQLite connection."""
         if self.conn:
             self.conn.close()
@@ -61,7 +63,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             raise DatabaseError(f"SQLite error: {e}\nQuery: {query}")
 
-    def create_tables(self):
+    def create_tables(self) -> None:
         """Create all necessary tables."""
 
         # Enhanced projects table
@@ -124,7 +126,7 @@ class DatabaseManager:
         # Initialize default tags
         self._initialize_default_tags()
 
-    def _initialize_default_tags(self):
+    def _initialize_default_tags(self) -> None:
         """Initialize default tags from config."""
         for tag_name, tag_data in Config.DEFAULT_TAGS.items():
             sql = """
@@ -136,6 +138,52 @@ class DatabaseManager:
                 (tag_name, tag_data['color'], tag_data['icon']),
                 commit=True
             )
+
+    def _migrate_schema(self) -> None:
+        """Automatically migrate database schema to add missing columns."""
+        if not self.conn:
+            return
+
+        try:
+            cursor = self.conn.cursor()
+
+            # Check if projects table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='projects'"
+            )
+            if not cursor.fetchone():
+                # Table doesn't exist yet, will be created by create_tables()
+                return
+
+            # Get existing columns
+            cursor.execute("PRAGMA table_info(projects)")
+            existing_columns = {row[1] for row in cursor.fetchall()}
+
+            # Define required columns with their SQL definitions
+            required_columns = {
+                'notes': 'TEXT',
+                'favorite': 'INTEGER DEFAULT 0',
+                'last_opened': 'TEXT',
+                'open_count': 'INTEGER DEFAULT 0',
+                'color_theme': "TEXT DEFAULT 'blue'",
+            }
+
+            # Add missing columns
+            for column_name, column_def in required_columns.items():
+                if column_name not in existing_columns:
+                    try:
+                        cursor.execute(
+                            f"ALTER TABLE projects ADD COLUMN {column_name} {column_def}"
+                        )
+                        self.conn.commit()
+                    except sqlite3.Error:
+                        # Column might already exist or other error - silently continue
+                        pass
+
+        except sqlite3.Error:
+            # If migration fails, don't prevent the app from running
+            # The app will handle missing columns gracefully
+            pass
 
     # ==================== Project Operations ====================
 

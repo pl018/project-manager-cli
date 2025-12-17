@@ -10,7 +10,8 @@ from typing import Dict, Any
 from rich.console import Console
 from rich import print as rprint
 
-from .config import Config, ConfigManager
+from core.config_manager import DynamicConfig as Config, ConfigManager
+from core.config import Config as StaticConfig
 from .app import Application
 from .rich_help import RichGroup, RichCommand
 
@@ -257,16 +258,27 @@ def tui():
     - f: Toggle favorites filter
     - q: Quit
     """
+    import subprocess
+    from pathlib import Path
+
+    # Get the path to main.py (in project root)
+    project_root = Path(__file__).parent.parent.parent.parent
+    main_py = project_root / "main.py"
+
     try:
-        # Import here to avoid loading TUI dependencies for other commands
-        from ui.app import run_tui
-        
         console.print("[bold cyan]>>> Launching Project Manager TUI...[/bold cyan]")
-        run_tui()
-        
-    except ImportError as e:
-        console.print(f"[red]ERROR: Failed to import TUI module:[/red] {e}")
-        console.print("[yellow]Make sure textual is installed:[/yellow] [cyan]pip install textual[/cyan]")
+
+        # Use subprocess to launch TUI, maintaining architectural separation
+        result = subprocess.run(
+            [sys.executable, str(main_py)],
+            cwd=str(project_root)
+        )
+
+        sys.exit(result.returncode)
+
+    except FileNotFoundError:
+        console.print(f"[red]ERROR: Could not find main.py at:[/red] {main_py}")
+        console.print("[yellow]Make sure you're running from the project directory[/yellow]")
         sys.exit(1)
     except KeyboardInterrupt:
         console.print("\n\n[bold]Goodbye![/bold]")
