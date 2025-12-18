@@ -15,9 +15,11 @@ def main() -> None:
         ) from e
 
     from .window import MainWindow
+    from .theme import apply_theme
 
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("Project Manager")
+    apply_theme(app)
     win = MainWindow()
     win.show()
     raise SystemExit(app.exec())

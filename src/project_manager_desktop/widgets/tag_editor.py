@@ -5,6 +5,8 @@ from typing import List
 
 from PySide6 import QtCore, QtWidgets
 
+from ..theme import TOKENS
+
 
 class QFlowLayout(QtWidgets.QLayout):
     """Flow layout that wraps widgets to the next line when needed."""
@@ -107,7 +109,9 @@ class TagEditorWidget(QtWidgets.QWidget):
 
         # Current tags section
         current_label = QtWidgets.QLabel("Current Tags:")
-        current_label.setStyleSheet("font-weight: bold;")
+        f = current_label.font()
+        f.setBold(True)
+        current_label.setFont(f)
         layout.addWidget(current_label)
 
         # Scroll area for current tags
@@ -126,7 +130,7 @@ class TagEditorWidget(QtWidgets.QWidget):
 
         # Available tags section
         available_label = QtWidgets.QLabel("Available Tags (click to add):")
-        available_label.setStyleSheet("font-weight: bold;")
+        available_label.setFont(f)
         layout.addWidget(available_label)
 
         # Scroll area for available tags
@@ -189,7 +193,7 @@ class TagEditorWidget(QtWidgets.QWidget):
         # Add placeholder if no tags
         if not self._current_tags:
             placeholder = QtWidgets.QLabel("No tags")
-            placeholder.setStyleSheet("color: #888; font-style: italic;")
+            placeholder.setProperty("role", "muted")
             self.current_tags_layout.addWidget(placeholder)
 
     def _refresh_available_tags(self) -> None:
@@ -211,7 +215,7 @@ class TagEditorWidget(QtWidgets.QWidget):
         # Add placeholder if no available tags
         if not available:
             placeholder = QtWidgets.QLabel("No available tags")
-            placeholder.setStyleSheet("color: #888; font-style: italic;")
+            placeholder.setProperty("role", "muted")
             self.available_tags_layout.addWidget(placeholder)
 
     def _create_tag_pill(self, tag: str, removable: bool = False) -> QtWidgets.QWidget:
@@ -227,36 +231,43 @@ class TagEditorWidget(QtWidgets.QWidget):
         if removable:
             remove_btn = QtWidgets.QToolButton()
             remove_btn.setText("×")
-            remove_btn.setStyleSheet("font-size: 14px; font-weight: bold; border: none; padding: 0px;")
+            remove_btn.setStyleSheet(
+                f"font-size: 14px; font-weight: 600; border: none; padding: 0px; color: {TOKENS.fg_muted};"
+            )
             remove_btn.setMaximumSize(16, 16)
             remove_btn.clicked.connect(lambda: self._remove_tag(tag))
             layout.addWidget(remove_btn)
 
-        widget.setStyleSheet("""
-            QWidget {
-                background-color: #3b82f6;
-                color: white;
-                border-radius: 4px;
-            }
-        """)
+        widget.setStyleSheet(
+            f"""
+            QWidget {{
+                background-color: rgba(91, 140, 255, 0.18);
+                color: {TOKENS.fg};
+                border: 1px solid rgba(91, 140, 255, 0.35);
+                border-radius: 8px;
+            }}
+            """
+        )
 
         return widget
 
     def _create_tag_button(self, tag: str) -> QtWidgets.QPushButton:
         """Create a clickable tag button."""
         btn = QtWidgets.QPushButton(tag)
-        btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e5e7eb;
-                color: #1f2937;
-                border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 4px 8px;
-            }
-            QPushButton:hover {
-                background-color: #d1d5db;
-            }
-        """)
+        btn.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {TOKENS.fg};
+                border: 1px solid {TOKENS.border};
+                border-radius: 8px;
+                padding: 4px 10px;
+            }}
+            QPushButton:hover {{
+                background-color: {TOKENS.bg_hover};
+            }}
+            """
+        )
         btn.clicked.connect(lambda: self._add_tag(tag))
         return btn
 
