@@ -1,18 +1,20 @@
 # Project Manager CLI
 
-A powerful, cross-platform project management tool with both **CLI** and **TUI** (Terminal User Interface) modes. Manage your development projects, integrate with Cursor and other IDEs, and leverage AI-powered tagging for better organization.
+A powerful, cross-platform project management tool with **three** complementary interfaces. Manage your development projects, integrate with Cursor and other IDEs, and leverage AI-powered tagging for better organization.
 
 ![Python](https://img.shields.io/badge/python-3.12+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
+![Status](https://img.shields.io/badge/status-active_development-blue)
 
 ## Overview
 
-Project Manager CLI provides two complementary interfaces:
+Project Manager CLI provides three interfaces for managing your projects:
 
-- **CLI Mode** (`pm-cli`): Register and manage projects from the command line
-- **TUI Mode** (`python main.py`): Browse, search, and manage projects with a beautiful terminal interface
+- **CLI Mode** (`pm-cli`): Register and manage projects from the command line with rich formatting
+- **TUI Mode** (`python main.py` or `pm-cli tui`): Browse, search, and manage projects with a beautiful terminal interface built with Textual
+- **GUI Mode** (`pm-gui`): Desktop GUI built with PySide6 (Qt) for graphical project management with advanced features
 
-Both modes share the same SQLite database, so your projects are synchronized across interfaces.
+All three modes share the same SQLite database, so your projects are synchronized across interfaces.
 
 ## Features
 
@@ -45,6 +47,25 @@ Both modes share the same SQLite database, so your projects are synchronized acr
 - Keyboard shortcuts (vim-style navigation)
 - Mouse support
 - Project statistics and usage tracking
+
+### GUI Mode Features
+
+- **Desktop GUI** built with PySide6 (Qt6)
+- **Multi-tab Interface**:
+  - **Overview Tab**: Project details, statistics, and quick actions
+  - **Notes Tab**: Rich markdown notes editor with preview
+  - **Edit Tab**: Edit project name, description, and tags with validation
+  - **Tools Tab**: Configure and launch external tools (Cursor, VS Code, etc.)
+  - **Docs Tab**: Browse and preview markdown files in your project
+- **Advanced Features**:
+  - **Archive Projects**: Backup projects to ZIP with automatic cleanup of library folders (node_modules, venv, etc.)
+  - **Git Integration**: Detect uncommitted changes before archiving
+  - **Hard Delete**: Permanently remove projects from database
+  - **Directory Cleanup**: Delete project files from disk with powerful force-deletion
+  - **Filter by Status**: Show/hide archived projects
+- **Dark Theme**: Nord-inspired color scheme with excellent readability
+- **Table View**: Sortable, filterable table of all projects
+- **Search & Filter**: Real-time filtering by name, path, tags, and favorites
 
 ## Quick Start
 
@@ -79,6 +100,13 @@ Both modes share the same SQLite database, so your projects are synchronized acr
 4. **Launch the TUI** to browse your projects:
    ```bash
    python main.py
+   # OR
+   pm-cli tui
+   ```
+
+5. **Launch the GUI** (optional, requires PySide6):
+   ```bash
+   pm-gui
    ```
 
 ## Usage
@@ -212,6 +240,28 @@ pm-cli tui
 - Click tags to filter
 - Click buttons to execute actions
 
+### GUI Navigation
+
+The GUI provides a full desktop experience with:
+
+**Main Window:**
+- **Projects Table**: View all projects with sortable columns (Name, Path, Tags, Last Opened)
+- **Search Bar**: Filter projects by name, path, or tags
+- **Toolbar Buttons**:
+  - "Show Favorites" - Filter to favorite projects only
+  - "Show Archived" - Toggle archived projects visibility
+  - "Refresh" - Reload project list
+  - "Open in Tool" - Launch selected project in configured tool
+  - "Archive" - Backup project with cleanup options
+  - "Delete" - Remove project (soft or hard delete)
+
+**Project Detail Tabs:**
+- **Overview**: View project metadata, statistics, and quick actions
+- **Notes**: Edit rich markdown notes with live preview
+- **Edit**: Modify project name, description, and tags
+- **Tools**: Configure which tool to use (Cursor, VS Code, PyCharm, etc.)
+- **Docs**: Browse markdown documentation in your project
+
 ## Configuration
 
 ### Configuration File
@@ -283,27 +333,51 @@ Per-project logs are stored at:
 ```
 project-manager-cli/
 ├── src/
-│   ├── project_manager_cli/    # CLI application
-│   │   ├── cli.py              # Click CLI commands
-│   │   ├── app.py              # Application orchestration
-│   │   ├── config.py            # Configuration management
-│   │   └── services/           # Business logic services
-│   ├── core/                   # Core functionality
-│   │   ├── database.py         # SQLite database manager
-│   │   ├── models.py           # Pydantic data models
-│   │   └── config.py           # Core configuration
-│   ├── integrations/           # IDE/tool integrations
-│   │   ├── cursor.py           # Cursor integration
-│   │   ├── vscode.py           # VS Code integration
-│   │   ├── jetbrains.py        # JetBrains IDEs
-│   │   └── registry.py         # Tool registry
-│   └── ui/                     # TUI interface
-│       ├── app.py              # Textual application
-│       ├── screens/            # UI screens
-│       └── widgets/            # UI components
-├── main.py                     # TUI entry point
-├── pyproject.py                # Legacy CLI entry point
-└── pyproject.toml              # Package configuration
+│   ├── project_manager_cli/      # CLI application layer
+│   │   ├── cli.py                # Click CLI commands
+│   │   ├── app.py                # Application orchestration
+│   │   ├── services/             # Business logic services
+│   │   │   ├── ai_service.py             # OpenAI integration
+│   │   │   ├── archive_service.py        # Archive operations
+│   │   │   ├── git_service.py            # Git utilities
+│   │   │   ├── docs_discovery_service.py # Markdown file discovery
+│   │   │   └── ...
+│   │   └── formatters/           # Output formatting (HTML, tables)
+│   ├── core/                     # Core domain layer (SHARED)
+│   │   ├── database.py           # DatabaseManager with schema
+│   │   ├── models.py             # Pydantic data models
+│   │   ├── config.py             # Static configuration
+│   │   ├── config_manager.py     # Dynamic YAML config
+│   │   └── exceptions.py         # Custom exceptions
+│   ├── integrations/             # IDE/tool integration layer
+│   │   ├── base.py               # ToolIntegration abstract base
+│   │   ├── cursor.py             # Cursor IDE integration
+│   │   ├── vscode.py             # VS Code integration
+│   │   ├── jetbrains.py          # PyCharm, WebStorm, IntelliJ
+│   │   ├── terminal.py           # Terminal/shell integration
+│   │   ├── explorer.py           # File explorer integration
+│   │   └── registry.py           # Tool registry/factory
+│   ├── ui/                       # TUI presentation layer (Textual)
+│   │   ├── app.py                # ProjectManagerApp main application
+│   │   ├── screens/              # TUI screens
+│   │   │   ├── dashboard.py          # Main project browser
+│   │   │   └── project_detail.py     # Project detail view
+│   │   └── widgets/              # TUI components
+│   │       ├── project_card.py       # Project card component
+│   │       ├── search_bar.py         # Search input widget
+│   │       └── tag_pill.py           # Tag display widget
+│   └── project_manager_desktop/  # GUI presentation layer (PySide6)
+│       ├── main.py               # Entry point for GUI (pm-gui)
+│       ├── window.py             # MainWindow with tabs
+│       ├── models.py             # Qt models (ProjectsTableModel, FilterProxyModel)
+│       ├── theme.py              # Nord-inspired dark theme
+│       ├── dialogs/              # Dialog widgets
+│       │   └── archive_dialog.py     # Archive project dialog
+│       └── widgets/              # GUI widgets
+│           └── tag_editor.py         # Tag editor with flow layout
+├── main.py                       # TUI entry point
+├── pyproject.py                  # Legacy CLI entry point (backward compatibility)
+└── pyproject.toml                # Package configuration
 ```
 
 ## Requirements
@@ -314,13 +388,24 @@ project-manager-cli/
 
 ## Dependencies
 
+### Core Dependencies
 - `click` - CLI framework
 - `pydantic` - Data validation
-- `textual` - TUI framework
 - `rich` - Terminal formatting
 - `pyyaml` - Configuration file parsing
-- `openai` - AI tagging (optional)
 - `python-dotenv` - Environment variable management
+
+### TUI Dependencies
+- `textual` - TUI framework for terminal interface
+
+### GUI Dependencies (Optional)
+- `PySide6` - Qt6 bindings for desktop GUI
+- `markdown` - Markdown rendering
+- `pygments` - Syntax highlighting
+- `pymdown-extensions` - Enhanced markdown features
+
+### Optional Dependencies
+- `openai` - AI-powered tagging (requires API key)
 
 ## Backward Compatibility
 
