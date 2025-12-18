@@ -72,7 +72,7 @@ class ProjectTableFormatter:
                 import json
                 try:
                     tags = json.loads(tags)
-                except:
+                except json.JSONDecodeError:
                     tags = []
             
             tags_text = self._format_tags(tags)
@@ -86,7 +86,7 @@ class ProjectTableFormatter:
                     else:
                         dt = last_opened
                     last_opened_str = dt.strftime("%Y-%m-%d")
-                except:
+                except (ValueError, AttributeError):
                     last_opened_str = "-"
             else:
                 last_opened_str = "-"

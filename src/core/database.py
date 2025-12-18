@@ -15,6 +15,9 @@ from .models import Project, Tag, ToolConfig
 class DatabaseManager:
     """Manages SQLite database interactions with enhanced features."""
 
+    # Current schema version - increment this when adding new columns/tables
+    SCHEMA_VERSION = 2
+
     def __init__(self, db_path: Optional[str] = None):
         self.db_path = db_path or Config.SQLITE_DB_PATH
         self.conn: Optional[sqlite3.Connection] = None
@@ -37,13 +40,37 @@ class DatabaseManager:
     @contextmanager
     def transaction(self):
         """
-        Context manager for database transactions.
+        Context manager for database transactions with automatic commit/rollback.
+
+        Provides ACID guarantees for database operations. All database modifications
+        within the context are committed atomically, or rolled back if any error occurs.
 
         Usage:
             with db.transaction():
                 db.archive_project(...)
-                # other operations
-                # If any operation raises an exception, all changes are rolled back
+                db.update_project_fields(...)
+                # Multiple DB operations executed atomically
+                # If any operation raises an exception, ALL changes are rolled back
+
+        Important notes:
+        - Only database operations can be part of the transaction
+        - File system operations (creating files, deleting directories) cannot be
+          rolled back by SQLite and should be handled separately with cleanup logic
+        - For multi-step operations involving both DB and file operations, structure
+          your code to allow cleanup of file operations if DB transaction fails
+
+        Example pattern for file + DB operations:
+            # 1. Perform file operation
+            archive_path = create_zip_archive(project_path)
+            try:
+                # 2. Update database in transaction
+                with db.transaction():
+                    db.archive_project(uuid, archive_path, size)
+            except Exception:
+                # 3. Clean up file if DB operation failed
+                if archive_path.exists():
+                    archive_path.unlink()
+                raise
         """
         if not self.conn:
             self.connect()
@@ -90,6 +117,14 @@ class DatabaseManager:
 
     def create_tables(self) -> None:
         """Create all necessary tables."""
+
+        # Schema version tracking table
+        create_schema_version_sql = """
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        );
+        """
 
         # Enhanced projects table
         create_projects_sql = """
@@ -144,6 +179,7 @@ class DatabaseManager:
         );
         """
 
+        self._execute_query(create_schema_version_sql, commit=True)
         self._execute_query(create_projects_sql, commit=True)
         self._execute_query(create_tags_sql, commit=True)
         self._execute_query(create_tool_configs_sql, commit=True)
@@ -165,8 +201,33 @@ class DatabaseManager:
                 commit=True
             )
 
+    def _get_current_schema_version(self) -> int:
+        """Get the current schema version from the database."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1")
+            row = cursor.fetchone()
+            return row[0] if row else 0
+        except sqlite3.OperationalError:
+            # schema_version table doesn't exist yet
+            return 0
+
+    def _set_schema_version(self, version: int) -> None:
+        """Record the current schema version."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)",
+            (version, datetime.now().isoformat())
+        )
+        self.conn.commit()
+
     def _migrate_schema(self) -> None:
-        """Automatically migrate database schema to add missing columns."""
+        """
+        Automatically migrate database schema to add missing columns.
+
+        This method uses a versioning system to track schema changes and only
+        runs migrations when the database version is behind the code version.
+        """
         if not self.conn:
             return
 
@@ -181,40 +242,79 @@ class DatabaseManager:
                 # Table doesn't exist yet, will be created by create_tables()
                 return
 
+            # Get current schema version
+            current_version = self._get_current_schema_version()
+
+            # If already at latest version, skip migration
+            if current_version >= self.SCHEMA_VERSION:
+                return
+
             # Get existing columns
             cursor.execute("PRAGMA table_info(projects)")
             existing_columns = {row[1] for row in cursor.fetchall()}
 
-            # Define required columns with their SQL definitions
-            required_columns = {
+            # Define required columns with their SQL definitions (version 1)
+            required_columns_v1 = {
                 'description': 'TEXT',
                 'notes': 'TEXT',
                 'favorite': 'INTEGER DEFAULT 0',
                 'last_opened': 'TEXT',
                 'open_count': 'INTEGER DEFAULT 0',
                 'color_theme': "TEXT DEFAULT 'blue'",
+            }
+
+            # Version 2: Archive support
+            required_columns_v2 = {
                 'archived': 'INTEGER DEFAULT 0',
                 'archive_path': 'TEXT',
                 'archive_date': 'TEXT',
                 'archive_size_mb': 'REAL',
             }
 
-            # Add missing columns
-            for column_name, column_def in required_columns.items():
-                if column_name not in existing_columns:
-                    try:
-                        cursor.execute(
-                            f"ALTER TABLE projects ADD COLUMN {column_name} {column_def}"
-                        )
-                        self.conn.commit()
-                    except sqlite3.Error:
-                        # Column might already exist or other error - silently continue
-                        pass
+            # Apply migrations in order
+            migrations_applied = []
 
-        except sqlite3.Error:
-            # If migration fails, don't prevent the app from running
+            if current_version < 1:
+                # Apply version 1 migrations
+                for column_name, column_def in required_columns_v1.items():
+                    if column_name not in existing_columns:
+                        try:
+                            cursor.execute(
+                                f"ALTER TABLE projects ADD COLUMN {column_name} {column_def}"
+                            )
+                            migrations_applied.append(f"Added column: {column_name}")
+                        except sqlite3.Error as e:
+                            # Log error but continue with other migrations
+                            print(f"Warning: Failed to add column {column_name}: {e}")
+
+            if current_version < 2:
+                # Apply version 2 migrations
+                # Refresh column list after v1 migrations
+                cursor.execute("PRAGMA table_info(projects)")
+                existing_columns = {row[1] for row in cursor.fetchall()}
+
+                for column_name, column_def in required_columns_v2.items():
+                    if column_name not in existing_columns:
+                        try:
+                            cursor.execute(
+                                f"ALTER TABLE projects ADD COLUMN {column_name} {column_def}"
+                            )
+                            migrations_applied.append(f"Added column: {column_name}")
+                        except sqlite3.Error as e:
+                            print(f"Warning: Failed to add column {column_name}: {e}")
+
+            # Commit all migrations
+            if migrations_applied:
+                self.conn.commit()
+                print(f"Applied {len(migrations_applied)} schema migrations")
+
+            # Update schema version
+            self._set_schema_version(self.SCHEMA_VERSION)
+
+        except sqlite3.Error as e:
+            # Log migration failure but don't crash the app
+            print(f"Warning: Schema migration failed: {e}")
             # The app will handle missing columns gracefully
-            pass
 
     # ==================== Project Operations ====================
 
@@ -329,7 +429,7 @@ class DatabaseManager:
                 columns = [row[1] for row in cursor.fetchall()]
                 has_notes = 'notes' in columns
                 has_description = 'description' in columns
-            except:
+            except sqlite3.Error:
                 has_notes = False
                 has_description = False
             
@@ -357,7 +457,7 @@ class DatabaseManager:
                 cursor.execute("PRAGMA table_info(projects)")
                 columns = [row[1] for row in cursor.fetchall()]
                 has_favorite = 'favorite' in columns
-            except:
+            except sqlite3.Error:
                 has_favorite = False
             
             if has_favorite:
@@ -605,7 +705,7 @@ class DatabaseManager:
                 tags = json.loads(row['tags'])
                 for tag in tags:
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
-            except:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         stats['tag_distribution'] = dict(sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10])

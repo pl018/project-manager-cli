@@ -593,7 +593,7 @@ class MainWindow(QtWidgets.QMainWindow):
             import json
             try:
                 current_tags = json.loads(current_tags)
-            except:
+            except json.JSONDecodeError:
                 current_tags = []
         self.edit_tags.set_tags(current_tags)
 
@@ -788,7 +788,7 @@ class MainWindow(QtWidgets.QMainWindow):
             import json
             try:
                 current_tags = json.loads(current_tags)
-            except:
+            except json.JSONDecodeError:
                 current_tags = []
         self.edit_tags.set_tags(current_tags)
 
