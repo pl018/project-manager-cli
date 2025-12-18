@@ -429,7 +429,7 @@ class DatabaseManager:
                 columns = [row[1] for row in cursor.fetchall()]
                 has_notes = 'notes' in columns
                 has_description = 'description' in columns
-            except:
+            except sqlite3.Error:
                 has_notes = False
                 has_description = False
             
@@ -457,7 +457,7 @@ class DatabaseManager:
                 cursor.execute("PRAGMA table_info(projects)")
                 columns = [row[1] for row in cursor.fetchall()]
                 has_favorite = 'favorite' in columns
-            except:
+            except sqlite3.Error:
                 has_favorite = False
             
             if has_favorite:
@@ -705,7 +705,7 @@ class DatabaseManager:
                 tags = json.loads(row['tags'])
                 for tag in tags:
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
-            except:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         stats['tag_distribution'] = dict(sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10])
