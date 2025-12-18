@@ -12,7 +12,33 @@ from project_manager_cli.services.docs_discovery_service import DocsDiscoverySer
 
 from .dialogs import ArchiveProjectDialog
 from .models import ProjectsFilterProxyModel, ProjectsTableModel
+from .theme import TOKENS
 from .widgets import TagEditorWidget
+
+
+class ProjectsTableDelegate(QtWidgets.QStyledItemDelegate):
+    """Adds a restrained information hierarchy to the Projects table."""
+
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._muted = QtGui.QColor(TOKENS.fg_muted)
+
+    def initStyleOption(self, option: QtWidgets.QStyleOptionViewItem, index: QtCore.QModelIndex) -> None:  # noqa: N802
+        super().initStyleOption(option, index)
+        col = index.column()
+
+        # Name: slightly stronger.
+        if col == ProjectsTableModel.COL_NAME:
+            f = QtGui.QFont(option.font)
+            f.setWeight(QtGui.QFont.Weight.DemiBold)
+            option.font = f
+
+        # Meta columns: muted.
+        if col in (ProjectsTableModel.COL_PATH, ProjectsTableModel.COL_TAGS, ProjectsTableModel.COL_UPDATED):
+            pal = QtGui.QPalette(option.palette)
+            pal.setColor(QtGui.QPalette.ColorRole.Text, self._muted)
+            pal.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtGui.QColor(TOKENS.fg))
+            option.palette = pal
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -42,39 +68,94 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_ui(self) -> None:
         central = QtWidgets.QWidget()
         root_layout = QtWidgets.QVBoxLayout(central)
-        root_layout.setContentsMargins(8, 8, 8, 8)
-        root_layout.setSpacing(8)
+        root_layout.setContentsMargins(12, 12, 12, 12)
+        root_layout.setSpacing(12)
 
-        # Top toolbar row
-        top_row = QtWidgets.QHBoxLayout()
-        self.search_input = QtWidgets.QLineEdit()
-        self.search_input.setPlaceholderText("Search name / path / tags…")
+        # Typography primitives (kept simple + consistent)
+        section_font = QtGui.QFont(self.font())
+        section_font.setWeight(QtGui.QFont.Weight.DemiBold)
+        section_font.setPointSize(max(11, section_font.pointSize() + 1))  # ~14-15px
 
-        self.fav_only = QtWidgets.QToolButton()
-        self.fav_only.setCheckable(True)
-        self.fav_only.setText("★ Favorites")
+        page_title_font = QtGui.QFont(self.font())
+        page_title_font.setWeight(QtGui.QFont.Weight.DemiBold)
+        page_title_font.setPointSize(max(14, page_title_font.pointSize() + 4))  # ~18-20px
+
+        # Top actions toolbar (primary / secondary / destructive)
+        toolbar = QtWidgets.QFrame()
+        toolbar.setProperty("role", "toolbar")
+        tb = QtWidgets.QHBoxLayout(toolbar)
+        tb.setContentsMargins(12, 10, 12, 10)
+        tb.setSpacing(8)
+
+        tb_left = QtWidgets.QHBoxLayout()
+        tb_left.setSpacing(8)
+        app_title = QtWidgets.QLabel("Project Manager")
+        app_title.setFont(section_font)
+        tb_left.addWidget(app_title)
+
+        subtitle = QtWidgets.QLabel("Desktop")
+        subtitle.setProperty("role", "muted")
+        tb_left.addWidget(subtitle)
+        tb_left.addStretch(1)
+        tb.addLayout(tb_left, 1)
+
+        tb_right = QtWidgets.QHBoxLayout()
+        tb_right.setSpacing(8)
+
+        self.open_default_btn = QtWidgets.QPushButton("Open")
+        self.open_default_btn.setProperty("variant", "primary")
+
+        self.refresh_btn = QtWidgets.QPushButton("Refresh")
+
+        self.toggle_fav_btn = QtWidgets.QPushButton("Toggle Favorite")
 
         self.show_archived = QtWidgets.QToolButton()
         self.show_archived.setCheckable(True)
-        self.show_archived.setText("📦 Show Archived")
+        self.show_archived.setText("Show Archived")
 
-        self.refresh_btn = QtWidgets.QPushButton("Refresh")
-        self.open_default_btn = QtWidgets.QPushButton("Open")
-        self.toggle_fav_btn = QtWidgets.QPushButton("Toggle Favorite")
         self.archive_btn = QtWidgets.QPushButton("Archive Project")
-        self.archive_btn.setStyleSheet("QPushButton { color: #f59e0b; }")
-        self.delete_btn = QtWidgets.QPushButton("Delete Project")
-        self.delete_btn.setStyleSheet("QPushButton { color: #dc2626; }")
+        self.archive_btn.setProperty("variant", "warning")
 
-        top_row.addWidget(self.search_input, 1)
-        top_row.addWidget(self.fav_only)
-        top_row.addWidget(self.show_archived)
-        top_row.addWidget(self.refresh_btn)
-        top_row.addWidget(self.open_default_btn)
-        top_row.addWidget(self.toggle_fav_btn)
-        top_row.addWidget(self.archive_btn)
-        top_row.addWidget(self.delete_btn)
-        root_layout.addLayout(top_row)
+        self.delete_btn = QtWidgets.QPushButton("Delete Project")
+        self.delete_btn.setProperty("variant", "danger")
+
+        # Icons (best-effort; falls back to platform standard icons)
+        def _ico(theme_name: str, fallback: QtWidgets.QStyle.StandardPixmap) -> QtGui.QIcon:
+            icon = QtGui.QIcon.fromTheme(theme_name)
+            if icon.isNull():
+                icon = self.style().standardIcon(fallback)
+            return icon
+
+        self.open_default_btn.setIcon(_ico("document-open", QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton))
+        self.refresh_btn.setIcon(_ico("view-refresh", QtWidgets.QStyle.StandardPixmap.SP_BrowserReload))
+        self.toggle_fav_btn.setIcon(_ico("rating", QtWidgets.QStyle.StandardPixmap.SP_DialogApplyButton))
+        self.show_archived.setIcon(_ico("folder", QtWidgets.QStyle.StandardPixmap.SP_DirIcon))
+        self.archive_btn.setIcon(_ico("document-save", QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton))
+        self.delete_btn.setIcon(_ico("edit-delete", QtWidgets.QStyle.StandardPixmap.SP_TrashIcon))
+
+        tb_right.addWidget(self.open_default_btn)
+        tb_right.addWidget(self.refresh_btn)
+
+        sep1 = QtWidgets.QFrame()
+        sep1.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+        sep1.setFrameShadow(QtWidgets.QFrame.Shadow.Plain)
+        sep1.setStyleSheet(f"color: {TOKENS.border_subtle};")
+        tb_right.addWidget(sep1)
+
+        tb_right.addWidget(self.toggle_fav_btn)
+        tb_right.addWidget(self.show_archived)
+
+        sep2 = QtWidgets.QFrame()
+        sep2.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+        sep2.setFrameShadow(QtWidgets.QFrame.Shadow.Plain)
+        sep2.setStyleSheet(f"color: {TOKENS.border_subtle};")
+        tb_right.addWidget(sep2)
+
+        tb_right.addWidget(self.archive_btn)
+        tb_right.addWidget(self.delete_btn)
+
+        tb.addLayout(tb_right, 0)
+        root_layout.addWidget(toolbar)
 
         # Splitter: list | detail
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
@@ -83,7 +164,47 @@ class MainWindow(QtWidgets.QMainWindow):
         left = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(6)
+        left_layout.setSpacing(10)
+
+        # Left pane header: title + count + search
+        left_header = QtWidgets.QFrame()
+        left_header.setProperty("role", "panel")
+        lh = QtWidgets.QVBoxLayout(left_header)
+        lh.setContentsMargins(12, 12, 12, 12)
+        lh.setSpacing(10)
+
+        header_row = QtWidgets.QHBoxLayout()
+        header_row.setSpacing(8)
+        projects_title = QtWidgets.QLabel("Projects")
+        projects_title.setFont(section_font)
+        header_row.addWidget(projects_title)
+
+        self.projects_count = QtWidgets.QLabel("0")
+        self.projects_count.setProperty("role", "muted")
+        header_row.addWidget(self.projects_count)
+        header_row.addStretch(1)
+
+        self.fav_only = QtWidgets.QToolButton()
+        self.fav_only.setCheckable(True)
+        self.fav_only.setText("Favorites")
+        header_row.addWidget(self.fav_only)
+
+        lh.addLayout(header_row)
+
+        self.search_input = QtWidgets.QLineEdit()
+        self.search_input.setPlaceholderText("Search projects (name, path, tags)")
+        self.search_input.setClearButtonEnabled(True)
+        try:
+            icon = QtGui.QIcon.fromTheme("edit-find")
+            if icon.isNull():
+                icon = self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_FileDialogContentsView)
+            act = self.search_input.addAction(icon, QtWidgets.QLineEdit.ActionPosition.LeadingPosition)
+            act.setEnabled(False)
+        except Exception:
+            pass
+        lh.addWidget(self.search_input)
+
+        left_layout.addWidget(left_header)
 
         self.table = QtWidgets.QTableView()
         self.table.setModel(self._proxy)
@@ -100,6 +221,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(ProjectsTableModel.COL_PATH, QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(ProjectsTableModel.COL_TAGS, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(ProjectsTableModel.COL_UPDATED, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setItemDelegate(ProjectsTableDelegate(self.table))
+        self.table.setShowGrid(False)
 
         left_layout.addWidget(self.table, 1)
         splitter.addWidget(left)
@@ -111,15 +234,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.setSpacing(8)
 
         self.detail_title = QtWidgets.QLabel("Select a project")
-        title_font = self.detail_title.font()
-        # Handle font size safely (pointSize can be -1 if font uses pixel size)
-        current_size = title_font.pointSize()
-        if current_size > 0:
-            title_font.setPointSize(current_size + 4)
-        else:
-            title_font.setPointSize(14)  # Default larger size
-        title_font.setBold(True)
-        self.detail_title.setFont(title_font)
+        self.detail_title.setFont(page_title_font)
         right_layout.addWidget(self.detail_title)
 
         self.tabs = QtWidgets.QTabWidget()
@@ -226,17 +341,35 @@ class MainWindow(QtWidgets.QMainWindow):
         # Top toolbar for Docs tab
         docs_toolbar = QtWidgets.QHBoxLayout()
         self.docs_search = QtWidgets.QLineEdit()
-        self.docs_search.setPlaceholderText("Search documentation files...")
+        self.docs_search.setPlaceholderText("Search documents (filename, path)")
+        self.docs_search.setClearButtonEnabled(True)
+        try:
+            icon = QtGui.QIcon.fromTheme("edit-find")
+            if icon.isNull():
+                icon = self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_FileDialogContentsView)
+            act = self.docs_search.addAction(icon, QtWidgets.QLineEdit.ActionPosition.LeadingPosition)
+            act.setEnabled(False)
+        except Exception:
+            pass
         self.docs_refresh_btn = QtWidgets.QPushButton("Refresh")
-        docs_toolbar.addWidget(QtWidgets.QLabel("Search:"))
         docs_toolbar.addWidget(self.docs_search, 1)
         docs_toolbar.addWidget(self.docs_refresh_btn)
         docs_layout.addLayout(docs_toolbar)
 
-        # Splitter: file list | preview
-        docs_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        # Splitter: documents list | preview
+        docs_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
 
-        # File table
+        # Left: documents panel
+        docs_left = QtWidgets.QFrame()
+        docs_left.setProperty("role", "panel")
+        dl = QtWidgets.QVBoxLayout(docs_left)
+        dl.setContentsMargins(12, 12, 12, 12)
+        dl.setSpacing(10)
+
+        docs_left_title = QtWidgets.QLabel("Documents")
+        docs_left_title.setFont(section_font)
+        dl.addWidget(docs_left_title)
+
         self.docs_table = QtWidgets.QTableWidget()
         self.docs_table.setColumnCount(3)
         self.docs_table.setHorizontalHeaderLabels(["Filename", "Path", "Modified"])
@@ -249,35 +382,45 @@ class MainWindow(QtWidgets.QMainWindow):
         self.docs_table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.docs_table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.docs_table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        docs_splitter.addWidget(self.docs_table)
+        self.docs_table.setShowGrid(False)
+        dl.addWidget(self.docs_table, 1)
 
-        # Preview area
-        preview_widget = QtWidgets.QWidget()
-        preview_layout = QtWidgets.QVBoxLayout(preview_widget)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
-        preview_layout.setSpacing(6)
+        docs_splitter.addWidget(docs_left)
+
+        # Right: preview panel
+        preview_panel = QtWidgets.QFrame()
+        preview_panel.setProperty("role", "panel")
+        pr = QtWidgets.QVBoxLayout(preview_panel)
+        pr.setContentsMargins(12, 12, 12, 12)
+        pr.setSpacing(10)
 
         preview_header = QtWidgets.QHBoxLayout()
-        self.docs_preview_label = QtWidgets.QLabel("Preview:")
-        self.docs_preview_label.setStyleSheet("font-weight: bold;")
-        preview_header.addWidget(self.docs_preview_label)
+        preview_title = QtWidgets.QLabel("Preview")
+        preview_title.setFont(section_font)
+        preview_header.addWidget(preview_title)
         preview_header.addStretch(1)
-        preview_layout.addLayout(preview_header)
+        self.docs_preview_label = QtWidgets.QLabel("")
+        self.docs_preview_label.setProperty("role", "muted")
+        preview_header.addWidget(self.docs_preview_label)
+        pr.addLayout(preview_header)
 
         self.docs_preview = QtWidgets.QTextBrowser()
         self.docs_preview.setOpenExternalLinks(False)
-        preview_layout.addWidget(self.docs_preview, 1)
+        pr.addWidget(self.docs_preview, 1)
 
-        # Preview buttons
+        # Preview action bar
         preview_buttons = QtWidgets.QHBoxLayout()
+        preview_buttons.setSpacing(8)
+        self.docs_open_default_btn = QtWidgets.QPushButton("Open")
+        self.docs_open_default_btn.setProperty("variant", "primary")
         self.docs_open_cursor_btn = QtWidgets.QPushButton("Open in Cursor")
-        self.docs_open_default_btn = QtWidgets.QPushButton("Open in Default Editor")
-        preview_buttons.addWidget(self.docs_open_cursor_btn)
+        self.docs_open_cursor_btn.setProperty("variant", "secondary")
         preview_buttons.addWidget(self.docs_open_default_btn)
+        preview_buttons.addWidget(self.docs_open_cursor_btn)
         preview_buttons.addStretch(1)
-        preview_layout.addLayout(preview_buttons)
+        pr.addLayout(preview_buttons)
 
-        docs_splitter.addWidget(preview_widget)
+        docs_splitter.addWidget(preview_panel)
         docs_splitter.setStretchFactor(0, 2)
         docs_splitter.setStretchFactor(1, 3)
 
@@ -351,6 +494,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self._projects_model.set_projects(projects)
             self._proxy.sort(ProjectsTableModel.COL_NAME, QtCore.Qt.SortOrder.AscendingOrder)
+            try:
+                self.projects_count.setText(f"({len(projects)})")
+            except Exception:
+                pass
             self.status.showMessage(f"Loaded {len(projects)} projects", 2500)
 
             if select_first and projects:
@@ -662,7 +809,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._current_docs = []
             self._populate_docs_table([])
             self.docs_preview.clear()
-            self.docs_preview_label.setText("Preview:")
+            self.docs_preview_label.setText("")
             return
 
         try:
@@ -673,8 +820,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if self._current_docs:
                 self.status.showMessage(f"Found {len(self._current_docs)} documentation files", 2000)
             else:
-                self.docs_preview.setHtml("<p style='color: #888; font-style: italic;'>No documentation files found in this project.</p>")
-                self.docs_preview_label.setText("Preview:")
+                self.docs_preview.setHtml(
+                    f"<p style='color: {TOKENS.fg_muted}; font-style: italic;'>No documentation files found in this project.</p>"
+                )
+                self.docs_preview_label.setText("")
 
         except Exception as e:
             self._current_docs = []
@@ -727,7 +876,7 @@ class MainWindow(QtWidgets.QMainWindow):
         doc = self._get_selected_doc()
         if not doc:
             self.docs_preview.clear()
-            self.docs_preview_label.setText("Preview:")
+            self.docs_preview_label.setText("")
             return
 
         self._render_markdown_preview(doc)
@@ -735,7 +884,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def _render_markdown_preview(self, doc: DocFile) -> None:
         """Render markdown file preview."""
         try:
-            self.docs_preview_label.setText(f"Preview: {doc.filename}")
+            # Show context (muted) while keeping the "Preview" title stable.
+            self.docs_preview_label.setText(doc.relative_path)
 
             # Read file content (limit to 100KB)
             max_size = 100 * 1024  # 100KB
@@ -795,26 +945,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 <style>
                     body {{
                         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                        padding: 16px;
-                        color: #d4d4d8;
-                        background-color: #2e3440;
+                        margin: 0;
+                        padding: 0;
+                        color: {TOKENS.fg};
+                        background: transparent;
                         line-height: 1.6;
+                        font-size: 14px;
+                    }}
+                    .doc {{
+                        padding: 16px;
                     }}
                     code {{
-                        background-color: #3b4252;
-                        color: #88c0d0;
-                        padding: 3px 6px;
-                        border-radius: 4px;
+                        background-color: rgba(255,255,255,0.06);
+                        color: {TOKENS.fg};
+                        padding: 2px 6px;
+                        border-radius: 6px;
                         font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
                         font-size: 0.9em;
                     }}
                     pre {{
-                        background-color: #3b4252;
-                        color: #d8dee9;
+                        background-color: rgba(255,255,255,0.04);
+                        color: {TOKENS.fg};
                         padding: 16px;
-                        border-radius: 6px;
+                        border-radius: 8px;
                         overflow-x: auto;
-                        border: 1px solid #4c566a;
+                        border: 1px solid {TOKENS.border};
                         line-height: 1.5;
                     }}
                     pre code {{
@@ -826,57 +981,53 @@ class MainWindow(QtWidgets.QMainWindow):
                     table {{
                         border-collapse: collapse;
                         margin: 12px 0;
-                        color: #d4d4d8;
+                        color: {TOKENS.fg};
                         width: 100%;
                     }}
                     th, td {{
-                        border: 1px solid #4c566a;
+                        border: 1px solid {TOKENS.border};
                         padding: 10px 12px;
                         text-align: left;
                     }}
                     th {{
-                        background-color: #3b4252;
-                        color: #eceff4;
+                        background-color: rgba(255,255,255,0.04);
+                        color: {TOKENS.fg};
                         font-weight: 600;
                     }}
-                    tr:nth-child(even) {{
-                        background-color: #343d4d;
-                    }}
                     a {{
-                        color: #88c0d0;
+                        color: {TOKENS.accent};
                         text-decoration: none;
                     }}
                     a:hover {{
-                        color: #8fbcbb;
+                        color: {TOKENS.focus_ring};
                         text-decoration: underline;
                     }}
                     h1, h2, h3, h4, h5, h6 {{
-                        color: #eceff4;
-                        margin-top: 24px;
-                        margin-bottom: 12px;
+                        color: {TOKENS.fg};
+                        margin-top: 22px;
+                        margin-bottom: 10px;
                         font-weight: 600;
                     }}
                     h1 {{
-                        font-size: 2em;
-                        border-bottom: 2px solid #4c566a;
+                        font-size: 24px;
+                        border-bottom: 1px solid {TOKENS.border_subtle};
                         padding-bottom: 10px;
                     }}
                     h2 {{
-                        font-size: 1.5em;
-                        border-bottom: 1px solid #4c566a;
+                        font-size: 18px;
+                        border-bottom: 1px solid {TOKENS.border_subtle};
                         padding-bottom: 8px;
                     }}
-                    h3 {{ font-size: 1.25em; }}
-                    h4 {{ font-size: 1.1em; }}
+                    h3 {{ font-size: 15px; }}
+                    h4 {{ font-size: 14px; color: {TOKENS.fg_muted}; }}
                     blockquote {{
-                        border-left: 4px solid #5e81ac;
+                        border-left: 3px solid rgba(91, 140, 255, 0.55);
                         padding-left: 16px;
                         margin: 16px 0;
-                        color: #b8c5db;
-                        font-style: italic;
+                        color: {TOKENS.fg_muted};
                     }}
                     ul, ol {{
-                        color: #d4d4d8;
+                        color: {TOKENS.fg};
                         padding-left: 28px;
                     }}
                     li {{
@@ -884,26 +1035,28 @@ class MainWindow(QtWidgets.QMainWindow):
                     }}
                     hr {{
                         border: none;
-                        border-top: 1px solid #4c566a;
+                        border-top: 1px solid {TOKENS.border_subtle};
                         margin: 24px 0;
                     }}
                     img {{
                         max-width: 100%;
                         height: auto;
-                        border-radius: 4px;
+                        border-radius: 8px;
                     }}
                     strong {{
-                        color: #eceff4;
+                        color: {TOKENS.fg};
                         font-weight: 600;
                     }}
                     em {{
-                        color: #b8c5db;
+                        color: {TOKENS.fg_muted};
                     }}
                     {pygments_css}
                 </style>
                 </head>
                 <body>
+                <div class="doc">
                 {html}
+                </div>
                 </body>
                 </html>
                 """
@@ -1042,14 +1195,14 @@ class MainWindow(QtWidgets.QMainWindow):
         hard_delete_checkbox = QtWidgets.QCheckBox(
             "Permanently delete from database (cannot be undone)"
         )
-        hard_delete_checkbox.setStyleSheet("color: #dc2626; font-weight: bold;")
+        hard_delete_checkbox.setStyleSheet(f"color: {TOKENS.danger}; font-weight: 600;")
         layout.addWidget(hard_delete_checkbox)
 
         # Delete files checkbox
         delete_files_checkbox = QtWidgets.QCheckBox(
             "Also delete project files from disk (DESTRUCTIVE!)"
         )
-        delete_files_checkbox.setStyleSheet("color: #dc2626; font-weight: bold;")
+        delete_files_checkbox.setStyleSheet(f"color: {TOKENS.danger}; font-weight: 600;")
         layout.addWidget(delete_files_checkbox)
 
         # Warning label for hard delete (hidden by default)
@@ -1058,8 +1211,9 @@ class MainWindow(QtWidgets.QMainWindow):
             "This action cannot be undone!"
         )
         warning_label.setStyleSheet(
-            "color: #991b1b; background-color: #fef2f2; "
-            "padding: 8px; border-radius: 4px; font-weight: bold;"
+            f"color: {TOKENS.danger}; background-color: rgba(224, 82, 82, 0.12); "
+            f"border: 1px solid rgba(224, 82, 82, 0.35); "
+            "padding: 10px; border-radius: 8px; font-weight: 600;"
         )
         warning_label.setWordWrap(True)
         warning_label.setVisible(False)
@@ -1071,8 +1225,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "Locked files will be force-closed. This CANNOT be undone!"
         )
         files_warning_label.setStyleSheet(
-            "color: #7f1d1d; background-color: #fee2e2; "
-            "padding: 8px; border-radius: 4px; font-weight: bold; border: 2px solid #dc2626;"
+            f"color: {TOKENS.danger}; background-color: rgba(224, 82, 82, 0.16); "
+            f"padding: 10px; border-radius: 8px; font-weight: 700; border: 1px solid rgba(224, 82, 82, 0.55);"
         )
         files_warning_label.setWordWrap(True)
         files_warning_label.setVisible(False)

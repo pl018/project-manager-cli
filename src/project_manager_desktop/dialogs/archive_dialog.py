@@ -3,11 +3,12 @@
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 from core.database import DatabaseManager
 from project_manager_cli.services.archive_service import ArchiveService
 from project_manager_cli.services.git_service import GitService
+from ..theme import TOKENS
 
 
 class ArchiveProjectDialog(QtWidgets.QDialog):
@@ -57,7 +58,11 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
             "The project files will remain on disk but library folders will be deleted."
         )
         warning.setWordWrap(True)
-        warning.setStyleSheet("color: #dc2626; padding: 10px; background-color: #fef2f2; border-radius: 4px;")
+        warning.setStyleSheet(
+            f"color: {TOKENS.warning}; padding: 10px; "
+            f"background-color: rgba(240, 179, 91, 0.10); border: 1px solid rgba(240, 179, 91, 0.35); "
+            "border-radius: 8px;"
+        )
         layout.addWidget(warning)
 
         # Git status area
@@ -81,7 +86,7 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
         self.delete_original_checkbox = QtWidgets.QCheckBox(
             "Delete original project directory after archiving (DESTRUCTIVE!)"
         )
-        self.delete_original_checkbox.setStyleSheet("color: #dc2626; font-weight: bold;")
+        self.delete_original_checkbox.setStyleSheet(f"color: {TOKENS.danger}; font-weight: 600;")
         self.delete_original_checkbox.setToolTip(
             "After successful archive, the original project directory will be permanently deleted.\n"
             "This will kill locked processes and force-delete all files."
@@ -104,7 +109,7 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
 
         if not git_service.is_git_repository(self.project_path):
             self.git_status_label.setText("✓ Not a git repository (no git check needed)")
-            self.git_status_label.setStyleSheet("color: green;")
+            self.git_status_label.setStyleSheet(f"color: {TOKENS.success};")
             return
 
         has_changes, status_output = git_service.has_uncommitted_changes(self.project_path)
@@ -114,14 +119,14 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
                 "⚠ Warning: Uncommitted git changes detected!\n"
                 "Please review before archiving."
             )
-            self.git_status_label.setStyleSheet("color: #f59e0b; font-weight: bold;")
+            self.git_status_label.setStyleSheet(f"color: {TOKENS.warning}; font-weight: 600;")
 
             # Show git status in progress log
             self.progress_log.appendPlainText("Uncommitted changes:")
             self.progress_log.appendPlainText(status_output or "")
         else:
             self.git_status_label.setText("✓ Git repository is clean (no uncommitted changes)")
-            self.git_status_label.setStyleSheet("color: green;")
+            self.git_status_label.setStyleSheet(f"color: {TOKENS.success};")
 
     def _log(self, message: str):
         """Add message to progress log."""
@@ -130,28 +135,91 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
 
     def _delete_original_directory(self) -> bool:
         """
-        Delete the original project directory using PowerShell.
+        Delete the original project directory using an elevated PowerShell process.
 
         Returns:
             True if successful, False otherwise
         """
+        import base64
         import subprocess
 
-        # PowerShell command to kill processes holding handles and delete directory
-        ps_command = f'''$path="{self.project_path}"; if(Test-Path -LiteralPath $path){{ $pids=(& handle.exe -accepteula -nobanner $path 2>$null | % {{ if($_ -match '\\spid:\\s+(\\d+)\\s'){{ [int]$matches[1] }} }} | sort -Unique); if($pids){{ Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }}; try{{ Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop }} catch {{ takeown /F $path /R /D Y | Out-Null; icacls $path /grant "$env:USERNAME:(OI)(CI)F" /T /C | Out-Null; Remove-Item -LiteralPath $path -Recurse -Force }} }}'''
+        # Use a PowerShell single-quoted string for path safety; escape embedded single quotes.
+        path_ps = self.project_path.replace("'", "''")
+
+        # Inner payload runs elevated.
+        inner_ps = rf"""
+$ErrorActionPreference = "Stop"
+$path = '{path_ps}'
+
+if (Test-Path -LiteralPath $path) {{
+  # avoid killing the current PowerShell process
+  $myPid = $PID
+
+  if (-not (Get-Command handle64.exe -ErrorAction SilentlyContinue)) {{
+    Write-Error "handle64.exe not found on PATH. Put Sysinternals handle64.exe on PATH or use an absolute path."
+  }}
+
+  $pids = (& handle64.exe -accepteula -nobanner $path 2>$null |
+    ForEach-Object {{ if ($_ -match '\spid:\s+(\d+)\s') {{ [int]$matches[1] }} }} |
+    Sort-Object -Unique
+  ) | Where-Object {{ $_ -ne $myPid }}
+
+  if ($pids) {{
+    Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue
+  }}
+
+  try {{
+    Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+  }}
+  catch {{
+    takeown /F $path /R /D Y | Out-Null
+    icacls $path /grant "$env:USERNAME:(OI)(CI)F" /T /C | Out-Null
+    Remove-Item -LiteralPath $path -Recurse -Force
+  }}
+}}
+"""
+
+        enc = base64.b64encode(inner_ps.encode("utf-16le")).decode("ascii")
+
+        # Outer wrapper: elevate if needed, wait, and return exit code.
+        outer_ps = rf"""
+$enc = "{enc}"
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if ($isAdmin) {{
+  pwsh.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $enc
+  exit $LASTEXITCODE
+}} else {{
+  $p = Start-Process pwsh.exe -Verb RunAs -Wait -PassThru -ArgumentList @(
+    '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$enc
+  )
+  exit $p.ExitCode
+}}
+"""
 
         try:
-            self._log("Killing processes with handles to directory...")
+            self._log("Requesting administrator rights to force-close handles and delete directory...")
             QtWidgets.QApplication.processEvents()
 
             result = subprocess.run(
-                ['powershell', '-Command', ps_command],
+                ["pwsh.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outer_ps],
                 capture_output=True,
                 text=True,
-                timeout=60  # 60 second timeout
+                timeout=180,
             )
 
+            # If user cancels UAC, you'll typically get a non-zero exit code.
+            if result.stdout and result.stdout.strip():
+                self._log(result.stdout.strip())
+            if result.stderr and result.stderr.strip():
+                self._log(result.stderr.strip())
+
             return result.returncode == 0
+
+        except subprocess.TimeoutExpired:
+            self._log("Timed out while deleting directory.")
+            return False
         except Exception as e:
             self._log(f"Error deleting directory: {str(e)}")
             return False
@@ -214,44 +282,30 @@ class ArchiveProjectDialog(QtWidgets.QDialog):
             self.progress_bar.setValue(100)
             self._log(f"\n✓ Archive complete: {archive_filename}")
             self._log(f"✓ Archive size: {self.archive_size_mb:.2f} MB")
-            self._log(f"✓ Archive location: {self.archive_path}")
+            self._log(f"✓ Archive path: {self.archive_path}")
+
+            # Step 4 (optional): Delete original directory
+            if self.delete_original_checkbox.isChecked():
+                self._log("\n=== Step 4: Deleting original project directory ===")
+                self.progress_bar.setValue(95)
+
+                deleted_ok = self._delete_original_directory()
+                if deleted_ok:
+                    self._log("✓ Original project directory deleted")
+                else:
+                    self._log("⚠ Failed to delete original directory (archive still created)")
+
+                self.progress_bar.setValue(100)
 
             self.success = True
-
-            # Check if original directory should be deleted
-            if self.delete_original_checkbox.isChecked():
-                self._log("\n=== Step 4: Deleting original directory ===")
-                if self._delete_original_directory():
-                    self._log(f"✓ Original directory deleted: {self.project_path}")
-                else:
-                    self._log(f"⚠ Warning: Could not fully delete original directory")
-
-            # Success message
-            delete_msg = ""
-            if self.delete_original_checkbox.isChecked():
-                delete_msg = f"\n\n⚠ Original directory deleted from disk!"
-
-            QtWidgets.QMessageBox.information(
-                self,
-                "Archive Complete",
-                f"Project archived successfully!\n\n"
-                f"Archive: {archive_filename}\n"
-                f"Size: {self.archive_size_mb:.2f} MB\n"
-                f"Location: {archive_dir}"
-                f"{delete_msg}"
-            )
-
             self.accept()
 
         except Exception as e:
-            self.progress_bar.setValue(0)
-            self._log(f"\n✗ Error: {str(e)}")
-
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Archive Failed",
-                f"Failed to archive project:\n\n{str(e)}"
-            )
-
-            self.archive_btn.setEnabled(True)
+            self._log(f"\n✗ Archive failed: {e}")
+            QtWidgets.QMessageBox.critical(self, "Archive Failed", str(e))
             self.cancel_btn.setEnabled(True)
+            self.cancel_btn.setText("Close")
+        finally:
+            # Ensure the UI is left in a usable state.
+            if not self.success:
+                self.cancel_btn.setEnabled(True)
