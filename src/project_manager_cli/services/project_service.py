@@ -1,10 +1,13 @@
 """Project context service for the project manager CLI."""
 
+import glob
 import logging
 import os
+import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
+import pathspec
 from termcolor import colored
 
 from core.config_manager import config as Config
@@ -36,6 +39,37 @@ class ProjectContext:
             self.logger.error(colored(f"Error collecting project information: {str(e)}", "red"))
             raise ProjectManagerError(f"Failed to collect project information: {str(e)}")
 
+    def _load_ignore_patterns(self, base_dir: Path) -> pathspec.PathSpec:
+        """Load patterns from .gitignore and .cursorignore files.
+
+        Returns a PathSpec object that can be used to check if files should be ignored.
+        """
+        patterns: List[str] = []
+
+        # Load .gitignore
+        gitignore_path = base_dir / ".gitignore"
+        if gitignore_path.exists() and gitignore_path.is_file():
+            try:
+                with open(gitignore_path, 'r', encoding='utf-8') as f:
+                    patterns.extend(f.read().splitlines())
+                self.logger.debug(f"Loaded {len(patterns)} patterns from .gitignore")
+            except Exception as e:
+                self.logger.warning(colored(f"Warning: Could not read .gitignore: {str(e)}", "yellow"))
+
+        # Load .cursorignore
+        cursorignore_path = base_dir / ".cursorignore"
+        if cursorignore_path.exists() and cursorignore_path.is_file():
+            try:
+                with open(cursorignore_path, 'r', encoding='utf-8') as f:
+                    cursor_patterns = f.read().splitlines()
+                    patterns.extend(cursor_patterns)
+                    self.logger.debug(f"Loaded {len(cursor_patterns)} patterns from .cursorignore")
+            except Exception as e:
+                self.logger.warning(colored(f"Warning: Could not read .cursorignore: {str(e)}", "yellow"))
+
+        # Create PathSpec from patterns
+        return pathspec.PathSpec.from_lines('gitwildmatch', patterns)
+
     def get_file_samples(self) -> Optional[Dict[str, str]]:
         """Collects file samples from the repository for AI analysis."""
         try:
@@ -43,6 +77,9 @@ class ProjectContext:
             exclude_dirs = set(str(d) for d in (Config.EXCLUDE_DIRS or []))
             allowed_exts = set(str(e).lower() for e in (Config.IMPORTANT_EXTENSIONS or []))
             max_files = int(Config.MAX_FILES_TO_ANALYZE)
+
+            # Load ignore patterns from .gitignore and .cursorignore
+            ignore_spec = self._load_ignore_patterns(base_dir)
 
             self.logger.info(colored("Collecting file samples for AI tagging (README-first)...", "cyan"))
 
@@ -57,7 +94,10 @@ class ProjectContext:
             for name in readme_candidates:
                 p = base_dir / name
                 if p.exists() and p.is_file():
-                    priority_files.append(str(p))
+                    # Check if README is ignored
+                    relative_path = str(p.relative_to(base_dir))
+                    if not ignore_spec.match_file(relative_path):
+                        priority_files.append(str(p))
 
             # Walk the tree and stop as soon as we have enough samples.
             selected_files: list[str] = []
@@ -75,6 +115,15 @@ class ProjectContext:
 
                     for filename in filenames:
                         p = Path(root) / filename
+
+                        # Check if file is ignored by .gitignore or .cursorignore
+                        try:
+                            relative_path = str(p.relative_to(base_dir))
+                            if ignore_spec.match_file(relative_path):
+                                continue
+                        except Exception:
+                            continue
+
                         # Skip huge files early
                         try:
                             if p.stat().st_size > 1_000_000:
