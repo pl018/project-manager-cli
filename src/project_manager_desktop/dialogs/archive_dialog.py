@@ -275,6 +275,10 @@ if ($isAdmin) {{
             self._log("\n=== Step 3: Updating database ===")
             try:
                 # Use transaction to ensure database consistency
+                # NOTE: File operations (Steps 1-2) cannot be part of the SQLite transaction.
+                # The transaction only wraps the DB update to ensure atomicity of the
+                # database operation. If the DB update fails, we clean up the archive file
+                # to maintain consistency.
                 with self.db.transaction():
                     self.db.archive_project(
                         self.project_uuid,
@@ -282,7 +286,9 @@ if ($isAdmin) {{
                         self.archive_size_mb
                     )
             except Exception as db_error:
-                # If database update fails, clean up the archive file
+                # If database update fails, clean up the archive file to prevent
+                # orphaned archives. This ensures we don't have ZIP files that aren't
+                # tracked in the database.
                 self._log(f"⚠ Database update failed: {db_error}")
                 self._log("Cleaning up archive file...")
                 if archive_path.exists():
