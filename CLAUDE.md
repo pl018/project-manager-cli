@@ -278,7 +278,30 @@ Uses Rich library for formatted CLI output:
 
 ### Recent Changes (December 17, 2024)
 
-**✅ GUI ENHANCEMENTS COMPLETED**
+**✅ ARCHIVE & HARD DELETE FEATURES COMPLETED** - Latest
+- ✅ **Archive Project**: Backup projects to ZIP archives with library folder cleanup
+  - Git repository detection and uncommitted changes warning
+  - Automatic deletion of library folders (node_modules, venv, dist, build, __pycache__, etc.)
+  - ZIP archive creation with compression (excludes .git)
+  - Archives stored in `%APPDATA%\project-manager-cli\archives\`
+  - Archive naming: `{uuid}_{project-name}_YYYY-MM-DD.zip`
+  - Progress dialog with real-time feedback
+- ✅ **Hard Delete**: Permanently remove project records from database
+  - Checkbox in delete dialog: "Permanently delete from database (cannot be undone)"
+  - Dynamic warning messages based on checkbox state
+  - Soft delete remains the default (enabled=0)
+- ✅ **Archive Filtering**: Hide/show archived projects
+  - "📦 Show Archived" toggle button in toolbar
+  - Default view filters `enabled=1 AND archived=0`
+  - Database schema: Added `archived`, `archive_path`, `archive_date`, `archive_size_mb` columns
+- ✅ **Directory Cleanup**: PowerShell-based physical directory deletion
+  - "Also delete project files from disk" checkbox in delete dialog
+  - "Delete original directory after archiving" checkbox in archive dialog
+  - Uses handle.exe to kill processes holding file locks
+  - Force-deletion with ownership takeover and permission grants
+  - CRITICAL warnings for destructive operations
+
+**✅ GUI ENHANCEMENTS COMPLETED** - December 17, 2024
 - ✅ **Edit Tab**: Added editing for project name, description, and tags with validation
 - ✅ **Docs Tab**: Full markdown file browser with dark theme preview and syntax highlighting
 - ✅ **Delete Functionality**: Delete projects with confirmation dialog
@@ -295,18 +318,25 @@ Uses Rich library for formatted CLI output:
 - ✅ **Phase 5**: Standardized error handling (removed bare except clauses)
 - 📋 **Phase 6**: Test suite infrastructure (pending)
 
+**Files Created/Modified (Archive & Hard Delete):**
+- `src/project_manager_cli/services/git_service.py` → NEW: Git repository utilities
+- `src/project_manager_cli/services/archive_service.py` → NEW: Archive operations
+- `src/project_manager_desktop/dialogs/__init__.py` → NEW: Dialogs package
+- `src/project_manager_desktop/dialogs/archive_dialog.py` → NEW: Archive dialog widget
+- `src/core/database.py` → Added archive_project(), get_archived_projects() methods, schema migration
+- `src/project_manager_desktop/window.py` → Archive/hard delete UI, directory cleanup method
+
 **Files Created/Modified (GUI Enhancements):**
 - `src/project_manager_desktop/widgets/tag_editor.py` → NEW: Tag editor widget with QFlowLayout
 - `src/project_manager_desktop/widgets/__init__.py` → NEW: Widget package
 - `src/project_manager_cli/services/docs_discovery_service.py` → NEW: Shared doc discovery service
 - `src/core/models.py` → Added DocFile model
-- `src/core/database.py` → Added update_project_fields() method
 - `src/integrations/base.py` → Added open_file() method
 - `src/integrations/cursor.py` → Implemented open_file() for specific files
-- `src/project_manager_desktop/window.py` → Added Edit tab, implemented Docs tab, added delete button
+- `src/project_manager_desktop/window.py` → Added Edit tab, implemented Docs tab
 - `pyproject.toml` → Added markdown, pygments, pymdown-extensions to GUI dependencies
 
-**Result:** Full-featured GUI with editing, documentation browsing, and project management
+**Result:** Full-featured GUI with editing, documentation browsing, archiving, and complete project lifecycle management
 
 ### Outstanding Work
 
@@ -321,6 +351,42 @@ None currently - all major features implemented and working.
 ## Implementation Plans
 
 Detailed implementation plans are located in `.claude/plans/`:
+
+### ✅ Archive Project & Hard Delete Features - COMPLETED
+**Plan**: `.claude/plans/effervescent-plotting-reef.md`
+**Status**: ✅ Completed December 17, 2024
+
+Successfully implemented archive and hard delete features for the desktop GUI:
+- ✅ **Archive Project Feature**:
+  - Git Service: Repository detection and uncommitted changes check via subprocess
+  - Archive Service: ZIP creation, library folder deletion (node_modules, venv, dist, build, etc.)
+  - Archive Dialog: Progress tracking with git status warnings
+  - Database: `archived`, `archive_path`, `archive_date`, `archive_size_mb` columns
+  - Archive naming format: `{uuid}_{project-name}_YYYY-MM-DD.zip`
+  - Storage location: `%APPDATA%\project-manager-cli\archives\`
+- ✅ **Hard Delete Feature**:
+  - Checkbox in delete dialog for permanent database removal
+  - Enhanced warning messages (dynamic based on selections)
+  - Preserves soft delete as default behavior
+- ✅ **Archive Filtering**:
+  - "📦 Show Archived" toggle in toolbar
+  - Filters: `enabled=1 AND archived=0` (default) vs `archived=1` (when toggled)
+- ✅ **Directory Cleanup** (PowerShell-based):
+  - "Also delete project files from disk" checkbox in delete dialog
+  - "Delete original directory after archiving" checkbox in archive dialog
+  - Uses handle.exe to kill processes holding file locks
+  - Ownership takeover and permission grants for stubborn files
+  - 60-second timeout for large directories
+
+**Implementation Details**:
+- No new external dependencies (uses subprocess, zipfile, shutil, pathlib from standard library)
+- PowerShell one-liner integration for forced directory deletion
+- Robust error handling with user-friendly messages
+- CRITICAL warning banners for destructive operations
+- Progress feedback during archive/deletion operations
+
+**Files Created**: 4 new files (git_service.py, archive_service.py, dialogs package, archive_dialog.py)
+**Files Modified**: 2 files (database.py, window.py)
 
 ### ✅ GUI Enhancements (PySide6 Desktop App) - COMPLETED
 **Plan**: `.claude/plans/gui-enhancements.md`
