@@ -1,5 +1,6 @@
 """Enhanced SQLite database manager with support for notes, favorites, and tags."""
 
+from contextlib import contextmanager
 import json
 import sqlite3
 from datetime import datetime
@@ -32,6 +33,30 @@ class DatabaseManager:
         """Close SQLite connection."""
         if self.conn:
             self.conn.close()
+
+    @contextmanager
+    def transaction(self):
+        """
+        Context manager for database transactions.
+
+        Usage:
+            with db.transaction():
+                db.archive_project(...)
+                # other operations
+                # If any operation raises an exception, all changes are rolled back
+        """
+        if not self.conn:
+            self.connect()
+
+        try:
+            # Begin transaction
+            yield self.conn
+            # Commit on successful completion
+            self.conn.commit()
+        except Exception:
+            # Rollback on any error
+            self.conn.rollback()
+            raise
 
     def _execute_query(
         self,

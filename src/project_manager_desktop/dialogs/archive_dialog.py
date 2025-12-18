@@ -273,11 +273,21 @@ if ($isAdmin) {{
 
             # Step 3: Update database (100%)
             self._log("\n=== Step 3: Updating database ===")
-            self.db.archive_project(
-                self.project_uuid,
-                self.archive_path,
-                self.archive_size_mb
-            )
+            try:
+                # Use transaction to ensure database consistency
+                with self.db.transaction():
+                    self.db.archive_project(
+                        self.project_uuid,
+                        self.archive_path,
+                        self.archive_size_mb
+                    )
+            except Exception as db_error:
+                # If database update fails, clean up the archive file
+                self._log(f"⚠ Database update failed: {db_error}")
+                self._log("Cleaning up archive file...")
+                if archive_path.exists():
+                    archive_path.unlink()
+                raise Exception(f"Database update failed: {db_error}")
 
             self.progress_bar.setValue(100)
             self._log(f"\n✓ Archive complete: {archive_filename}")

@@ -269,7 +269,6 @@ Per-project logs are stored at:
 - **[Usage Guide](.docs/user/USAGE.md)** - Complete command reference
 - **[Configuration Guide](.docs/user/CONFIGURATION.md)** - Configuration options
 - **[Quick Start Guide](.docs/user/QUICKSTART.md)** - 5-minute setup guide
-- **[TUI Documentation](.docs/user/README-TUI.md)** - TUI features and usage
 - **[Troubleshooting](.docs/user/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Developer Documentation

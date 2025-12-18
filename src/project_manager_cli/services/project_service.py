@@ -1,7 +1,9 @@
 """Project context service for the project manager CLI."""
 
+import glob
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Dict, Optional
 
